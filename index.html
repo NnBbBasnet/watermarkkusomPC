@@ -8,10 +8,6 @@
     <!-- JSZip for creating downloadable zip files -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-    <!-- Google API for Drive integration -->
-    <script src="https://apis.google.com/js/api.js"></script>
-    <script src="https://accounts.google.com/gsi/client"></script>
-
     <style>
         * {
             margin: 0;
@@ -354,10 +350,6 @@
             border-left: 4px solid #e65100;
         }
 
-        #google-drive-section {
-            display: none;
-        }
-
         .action-buttons {
             display: flex;
             gap: 10px;
@@ -394,17 +386,7 @@
             </div>
 
             <div style="text-align: center; margin: 15px 0;">
-                <p style="color: #666; margin-bottom: 10px;">— OR —</p>
-                <button class="btn btn-secondary" id="googleDriveBtn">
-                    📂 Upload from Google Drive
-                </button>
-            </div>
-
-            <div id="google-drive-section">
-                <div class="alert alert-info">
-                    Click "Sign in with Google" below, then use the picker to select photos from your Drive.
-                </div>
-                <div id="google-signin-container"></div>
+                <p style="color: #666; font-size: 14px;">Supports JPG, PNG, multiple files</p>
             </div>
 
             <div class="preview-container" id="previewContainer"></div>
@@ -541,9 +523,6 @@
                 <button class="btn btn-secondary" id="downloadAllBtn" disabled>
                     ⬇️ Download All (ZIP)
                 </button>
-                <button class="btn btn-secondary" id="saveToDriveBtn" disabled>
-                    💾 Save to Google Drive
-                </button>
             </div>
 
             <div class="progress-container" id="progressContainer">
@@ -558,34 +537,9 @@
     </div>
 
     <script>
-        /*
-         * GOOGLE DRIVE SETUP INSTRUCTIONS:
-         *
-         * 1. Go to https://console.cloud.google.com/
-         * 2. Create a new project or select existing one
-         * 3. Enable Google Drive API and Google Picker API
-         * 4. Go to "Credentials" → "Create Credentials" → "OAuth client ID"
-         * 5. Application type: "Web application"
-         * 6. Add authorized JavaScript origins: your domain (or http://localhost for testing)
-         * 7. Copy the Client ID and paste it in the GOOGLE_CLIENT_ID variable below
-         * 8. Configure OAuth consent screen with appropriate scopes:
-         *    - https://www.googleapis.com/auth/drive.readonly
-         *    - https://www.googleapis.com/auth/drive.file
-         */
-
-        const GOOGLE_CLIENT_ID = '1008746939310-6hvkcg893agd9gtadelesfqs8urjc6f7.apps.googleusercontent.com';
-        const GOOGLE_API_KEY = 'AIzaSyBwzV8AM_GAR0qVsUgz1FE5KwsWCNJewPI'; // Developer key for Picker API
-        const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
-        const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file';
-
         // State management
         let uploadedFiles = [];
         let processedResults = [];
-        let googleAccessToken = null;
-        let pickerApiLoaded = false;
-        let gapiInited = false;
-        let gisInited = false;
-        let tokenClient;
 
         // DOM elements
         const fileInput = document.getElementById('fileInput');
@@ -594,12 +548,9 @@
         const previewCanvas = document.getElementById('previewCanvas');
         const processBtn = document.getElementById('processBtn');
         const downloadAllBtn = document.getElementById('downloadAllBtn');
-        const saveToDriveBtn = document.getElementById('saveToDriveBtn');
         const progressContainer = document.getElementById('progressContainer');
         const progressFill = document.getElementById('progressFill');
         const progressText = document.getElementById('progressText');
-        const googleDriveBtn = document.getElementById('googleDriveBtn');
-        const googleDriveSection = document.getElementById('google-drive-section');
         const settingsToggle = document.getElementById('settingsToggle');
         const settingsContent = document.getElementById('settingsContent');
         const toggleIcon = document.getElementById('toggleIcon');
@@ -619,7 +570,6 @@
 
         function init() {
             setupEventListeners();
-            initGoogleAPI();
         }
 
         function setupEventListeners() {
@@ -646,12 +596,8 @@
             // Process button
             processBtn.addEventListener('click', processAllPhotos);
 
-            // Download buttons
+            // Download button
             downloadAllBtn.addEventListener('click', downloadAllAsZip);
-            saveToDriveBtn.addEventListener('click', saveAllToDrive);
-
-            // Google Drive
-            googleDriveBtn.addEventListener('click', showGoogleDrivePicker);
 
             // Settings panel toggle
             settingsToggle.addEventListener('click', () => {
@@ -730,7 +676,6 @@
         function updateUIState() {
             processBtn.disabled = uploadedFiles.length === 0;
             downloadAllBtn.disabled = processedResults.length === 0;
-            saveToDriveBtn.disabled = processedResults.length === 0 || !googleAccessToken;
         }
 
         // ==================== WATERMARK PROCESSING ====================
@@ -746,7 +691,12 @@
 
         function processImage(img, filename, aspectRatio, isPreview = false) {
             return new Promise((resolve) => {
-                // Create canvas at original image size for watermarking
+                // Work at original image resolution or higher - never downscale
+                // Use the actual image dimensions for maximum quality
+                const workingWidth = img.width;
+                const workingHeight = img.height;
+
+                // Create canvas at original or higher resolution for watermarking
                 const originalCanvas = document.createElement('canvas');
                 const originalCtx = originalCanvas.getContext('2d', {
                     alpha: true,
@@ -754,18 +704,18 @@
                     willReadFrequently: false
                 });
 
-                originalCanvas.width = img.width;
-                originalCanvas.height = img.height;
+                originalCanvas.width = workingWidth;
+                originalCanvas.height = workingHeight;
 
-                // Enable high-quality rendering
+                // Enable highest quality rendering
                 originalCtx.imageSmoothingEnabled = true;
                 originalCtx.imageSmoothingQuality = 'high';
 
-                // Draw original image at full quality
-                originalCtx.drawImage(img, 0, 0, img.width, img.height);
+                // Draw original image at full quality - pixel perfect
+                originalCtx.drawImage(img, 0, 0, img.width, img.height, 0, 0, workingWidth, workingHeight);
 
-                // Apply watermark to original image
-                applyWatermark(originalCtx, img.width, img.height);
+                // Apply watermark to original image at native resolution
+                applyWatermark(originalCtx, workingWidth, workingHeight);
 
                 // Handle aspect ratio fitting
                 let finalCanvas;
@@ -790,24 +740,26 @@
                     previewCtx.drawImage(finalCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
                     resolve(null);
                 } else {
-                    // Convert to blob for download at maximum quality
+                    // Convert to blob for download at MAXIMUM quality
+                    // PNG with quality 1.0 ensures lossless output
                     finalCanvas.toBlob((blob) => {
                         resolve({
                             blob: blob,
                             filename: filename.replace(/\.[^.]+$/, '_WM.png')
                         });
-                    }, 'image/png', 1.0);  // Maximum quality
+                    }, 'image/png', 1.0);
                 }
             });
         }
 
         function applyWatermark(ctx, width, height) {
-            // Use 2x supersampling for crisp text rendering at any size
-            const superSample = 2;
+            // Use 4x supersampling for ultra-crisp text rendering at any size
+            // This renders text at 4x resolution and downsamples for maximum sharpness
+            const superSample = 4;
             const ssWidth = width * superSample;
             const ssHeight = height * superSample;
 
-            // Create high-resolution canvas for watermark
+            // Create ultra-high-resolution canvas for watermark
             const watermarkCanvas = document.createElement('canvas');
             watermarkCanvas.width = ssWidth;
             watermarkCanvas.height = ssHeight;
@@ -817,7 +769,7 @@
                 willReadFrequently: false
             });
 
-            // Disable smoothing for sharp text at high resolution
+            // Disable smoothing for pixel-perfect text at ultra-high resolution
             wmCtx.imageSmoothingEnabled = false;
 
             // Calculate bar dimensions (scaled proportionally to image width)
@@ -829,14 +781,15 @@
             const barBottomY = (ssHeight / 3) * 2;
             const barTopY = barBottomY - scaledBarHeight;
 
-            // Draw bar at high resolution
+            // Draw bar at ultra-high resolution
             const opacity = parseInt(barOpacity.value) / 100;
             wmCtx.fillStyle = `rgba(119, 36, 28, ${opacity})`;
             wmCtx.fillRect(0, barTopY, ssWidth, scaledBarHeight);
 
-            // Text settings - render at high resolution for maximum sharpness
+            // Text settings - render at ultra-high resolution for razor-sharp output
             const fontSize = Math.round(scaledBarHeight * 0.4);
-            wmCtx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+            // Use bold weight (700) for better clarity at small sizes
+            wmCtx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
             wmCtx.fillStyle = '#FFFFFF';
             wmCtx.textBaseline = 'middle';
 
@@ -851,7 +804,7 @@
             const barCenterY = barTopY + (scaledBarHeight / 2);
             const margin = ssWidth * 0.05; // 5% margin on each side
 
-            // Draw texts at high resolution with integer coordinates
+            // Draw texts at ultra-high resolution with integer coordinates for maximum sharpness
             // Left text
             wmCtx.textAlign = 'left';
             wmCtx.fillText(texts[0], Math.round(margin), Math.round(barCenterY));
@@ -864,7 +817,8 @@
             wmCtx.textAlign = 'right';
             wmCtx.fillText(texts[2], Math.round(ssWidth - margin), Math.round(barCenterY));
 
-            // Now downsample the high-res watermark onto the original canvas for sharp rendering
+            // Now downsample the ultra-high-res watermark onto the original canvas
+            // This produces incredibly sharp text through high-quality downsampling
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(watermarkCanvas, 0, 0, ssWidth, ssHeight, 0, 0, width, height);
@@ -874,23 +828,38 @@
             // Parse aspect ratio
             const [ratioW, ratioH] = aspectRatio.split(':').map(Number);
 
-            // Determine target dimensions - use higher resolution for better quality
+            // Determine target dimensions - use source image size if larger than standard
+            // This prevents unnecessary downscaling and preserves maximum quality
             let targetWidth, targetHeight;
 
-            // Use high-resolution outputs (2x standard for better quality)
-            const resolutions = {
+            // Standard resolutions
+            const standardResolutions = {
                 '9:16': { w: 1080, h: 1920 },
                 '4:5': { w: 1080, h: 1350 },
                 '1:1': { w: 1080, h: 1080 },
                 '16:9': { w: 1920, h: 1080 }
             };
 
-            if (resolutions[aspectRatio]) {
-                targetWidth = resolutions[aspectRatio].w;
-                targetHeight = resolutions[aspectRatio].h;
+            // Calculate dimensions - use larger of standard or source-based dimensions
+            if (standardResolutions[aspectRatio]) {
+                const stdRes = standardResolutions[aspectRatio];
+
+                // If source is larger than standard resolution, scale up the target to match
+                const sourceMax = Math.max(sourceCanvas.width, sourceCanvas.height);
+                const targetMax = Math.max(stdRes.w, stdRes.h);
+
+                if (sourceMax > targetMax) {
+                    // Scale up the target resolution proportionally
+                    const scale = sourceMax / targetMax;
+                    targetWidth = Math.round(stdRes.w * scale);
+                    targetHeight = Math.round(stdRes.h * scale);
+                } else {
+                    targetWidth = stdRes.w;
+                    targetHeight = stdRes.h;
+                }
             } else {
                 // Fallback calculation
-                targetWidth = 1080;
+                targetWidth = Math.max(1080, sourceCanvas.width);
                 targetHeight = Math.round(targetWidth * (ratioH / ratioW));
             }
 
@@ -904,7 +873,7 @@
                 willReadFrequently: false
             });
 
-            // Enable high-quality image smoothing
+            // Enable ultra-high-quality image smoothing
             targetCtx.imageSmoothingEnabled = true;
             targetCtx.imageSmoothingQuality = 'high';
 
@@ -938,11 +907,11 @@
             drawWidth = Math.round(drawWidth);
             drawHeight = Math.round(drawHeight);
 
-            // Draw scaled image centered with high-quality interpolation
-            // Use source dimensions for best quality when scaling
+            // Draw scaled image centered with maximum quality interpolation
+            // Use full source dimensions for best quality when scaling
             targetCtx.drawImage(
                 sourceCanvas,
-                0, 0, sourceCanvas.width, sourceCanvas.height,  // Source rectangle
+                0, 0, sourceCanvas.width, sourceCanvas.height,  // Source rectangle (full source)
                 drawX, drawY, drawWidth, drawHeight              // Destination rectangle
             );
 
@@ -992,182 +961,6 @@
             a.download = `KUSOM_Watermarked_Photos_${Date.now()}.zip`;
             a.click();
             URL.revokeObjectURL(url);
-        }
-
-        // ==================== GOOGLE DRIVE INTEGRATION ====================
-
-        function initGoogleAPI() {
-            // Load the Google API client
-            gapi.load('client:picker', initializeGapiClient);
-
-            // Initialize Google Identity Services
-            google.accounts.id.initialize({
-                client_id: GOOGLE_CLIENT_ID,
-                callback: handleCredentialResponse
-            });
-
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: GOOGLE_CLIENT_ID,
-                scope: SCOPES,
-                callback: (response) => {
-                    if (response.access_token) {
-                        googleAccessToken = response.access_token;
-                        createPicker();
-                    }
-                }
-            });
-
-            gisInited = true;
-        }
-
-        async function initializeGapiClient() {
-            try {
-                await gapi.client.init({
-                    apiKey: GOOGLE_API_KEY,
-                    discoveryDocs: DISCOVERY_DOCS,
-                });
-                gapiInited = true;
-                pickerApiLoaded = true;
-            } catch (error) {
-                console.error('Error initializing GAPI client:', error);
-            }
-        }
-
-        function handleCredentialResponse(response) {
-            // Handle the credential response if needed
-        }
-
-        function showGoogleDrivePicker() {
-            if (!gapiInited || !gisInited) {
-                alert('Google API is still loading. Please wait a moment and try again.');
-                return;
-            }
-
-            tokenClient.requestAccessToken({ prompt: 'consent' });
-        }
-
-        function createPicker() {
-            if (!pickerApiLoaded || !googleAccessToken) {
-                return;
-            }
-
-            const picker = new google.picker.PickerBuilder()
-                .addView(google.picker.ViewId.DOCS_IMAGES)
-                .setOAuthToken(googleAccessToken)
-                .setDeveloperKey(GOOGLE_API_KEY)
-                .setCallback(pickerCallback)
-                .setTitle('Select Photos from Google Drive')
-                .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
-                .build();
-
-            picker.setVisible(true);
-        }
-
-        async function pickerCallback(data) {
-            if (data[google.picker.Response.ACTION] === google.picker.Action.PICKED) {
-                const docs = data[google.picker.Response.DOCUMENTS];
-
-                for (const doc of docs) {
-                    await downloadFromDrive(doc.id, doc.name);
-                }
-            }
-        }
-
-        async function downloadFromDrive(fileId, fileName) {
-            try {
-                const response = await gapi.client.drive.files.get({
-                    fileId: fileId,
-                    alt: 'media'
-                }, {
-                    responseType: 'blob'
-                });
-
-                const blob = response.body;
-                const reader = new FileReader();
-
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        uploadedFiles.push({
-                            file: new File([blob], fileName),
-                            name: fileName,
-                            url: e.target.result,
-                            img: img
-                        });
-
-                        addPreviewThumbnail(uploadedFiles.length - 1);
-                        updateUIState();
-
-                        if (uploadedFiles.length === 1) {
-                            updatePreview();
-                        }
-                    };
-                    img.src = e.target.result;
-                };
-
-                reader.readAsDataURL(blob);
-            } catch (error) {
-                console.error('Error downloading from Drive:', error);
-            }
-        }
-
-        async function saveAllToDrive() {
-            if (!googleAccessToken || processedResults.length === 0) {
-                alert('Please sign in to Google Drive first and process photos.');
-                return;
-            }
-
-            const folderName = `KUSOM_Watermarked_${Date.now()}`;
-
-            try {
-                // Create a folder
-                const folderMetadata = {
-                    name: folderName,
-                    mimeType: 'application/vnd.google-apps.folder'
-                };
-
-                const folderResponse = await gapi.client.drive.files.create({
-                    resource: folderMetadata,
-                    fields: 'id'
-                });
-
-                const folderId = folderResponse.result.id;
-
-                // Upload each file to the folder
-                for (let i = 0; i < processedResults.length; i++) {
-                    const result = processedResults[i];
-                    await uploadToDrive(result.blob, result.filename, folderId);
-
-                    progressText.textContent = `Uploading to Drive: ${i + 1} of ${processedResults.length}...`;
-                }
-
-                alert(`Successfully saved ${processedResults.length} photos to Google Drive folder: ${folderName}`);
-                progressText.innerHTML = '<strong style="color: #2e7d32;">✓ Upload to Drive complete!</strong>';
-            } catch (error) {
-                console.error('Error saving to Drive:', error);
-                alert('Error saving to Google Drive. Please try again.');
-            }
-        }
-
-        async function uploadToDrive(blob, filename, folderId) {
-            const metadata = {
-                name: filename,
-                parents: [folderId]
-            };
-
-            const form = new FormData();
-            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-            form.append('file', blob);
-
-            const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + googleAccessToken
-                },
-                body: form
-            });
-
-            return response.json();
         }
     </script>
 </body>
