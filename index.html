@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KUSOM Placement Cell - Photo Watermark Tool</title>
+
+    <!-- JSZip for creating downloadable zip files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <!-- Google API for Drive integration -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: #77241C;
+            color: white;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            opacity: 0.9;
+        }
+
+        .section {
+            background: white;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            color: #77241C;
+            margin-bottom: 15px;
+            font-size: 20px;
+            border-bottom: 2px solid #77241C;
+            padding-bottom: 8px;
+        }
+
+        .upload-zone {
+            border: 3px dashed #ccc;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 15px;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            border-color: #77241C;
+            background: #fff5f4;
+        }
+
+        .upload-zone input[type="file"] {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            background: #77241C;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #5a1b15;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #666;
+        }
+
+        .btn-secondary:hover {
+            background: #444;
+        }
+
+        .aspect-ratio-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .aspect-ratio-table th,
+        .aspect-ratio-table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+
+        .aspect-ratio-table th {
+            background: #77241C;
+            color: white;
+            font-weight: 600;
+        }
+
+        .aspect-ratio-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .ratio-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .ratio-option {
+            position: relative;
+        }
+
+        .ratio-option input[type="radio"] {
+            display: none;
+        }
+
+        .ratio-option label {
+            display: block;
+            padding: 15px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .ratio-option input[type="radio"]:checked + label {
+            background: #77241C;
+            color: white;
+            border-color: #77241C;
+        }
+
+        .ratio-option label:hover {
+            border-color: #77241C;
+        }
+
+        .settings-panel {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+
+        .settings-group {
+            margin-bottom: 15px;
+        }
+
+        .settings-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .settings-group input[type="number"],
+        .settings-group input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .settings-group input[type="range"] {
+            width: 100%;
+        }
+
+        .settings-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .preview-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .preview-item {
+            position: relative;
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+
+        .preview-item .filename {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #666;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .preview-item .remove-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .progress-container {
+            display: none;
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #77241C, #a02f25);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .sample-preview {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .sample-preview canvas {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .collapsible {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .collapsible:hover {
+            background: #e5e5e5;
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapsible-content.open {
+            max-height: 2000px;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+
+        .alert-info {
+            background: #e3f2fd;
+            color: #1565c0;
+            border-left: 4px solid #1565c0;
+        }
+
+        .alert-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #2e7d32;
+        }
+
+        .alert-warning {
+            background: #fff3e0;
+            color: #e65100;
+            border-left: 4px solid #e65100;
+        }
+
+        #google-drive-section {
+            display: none;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .settings-row {
+                grid-template-columns: 1fr;
+            }
+
+            .ratio-selector {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📸 KUSOM Placement Cell Photo Watermark Tool</h1>
+            <p>Bulk watermark and format photos for social media</p>
+        </header>
+
+        <!-- STEP 1: UPLOAD -->
+        <div class="section">
+            <h2>Step 1: Upload Photos</h2>
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📁</div>
+                <p><strong>Click to upload</strong> or drag and drop photos here</p>
+                <p style="color: #666; font-size: 14px; margin-top: 5px;">Supports JPG, PNG, multiple files</p>
+                <input type="file" id="fileInput" accept="image/*" multiple>
+            </div>
+
+            <div style="text-align: center; margin: 15px 0;">
+                <p style="color: #666; margin-bottom: 10px;">— OR —</p>
+                <button class="btn btn-secondary" id="googleDriveBtn">
+                    📂 Upload from Google Drive
+                </button>
+            </div>
+
+            <div id="google-drive-section">
+                <div class="alert alert-info">
+                    Click "Sign in with Google" below, then use the picker to select photos from your Drive.
+                </div>
+                <div id="google-signin-container"></div>
+            </div>
+
+            <div class="preview-container" id="previewContainer"></div>
+        </div>
+
+        <!-- STEP 2: ASPECT RATIO -->
+        <div class="section">
+            <h2>Step 2: Choose Aspect Ratio</h2>
+
+            <div class="alert alert-info">
+                <strong>Reference Guide:</strong> Each aspect ratio is optimized for specific platforms
+            </div>
+
+            <table class="aspect-ratio-table">
+                <thead>
+                    <tr>
+                        <th>Aspect Ratio</th>
+                        <th>Resolution</th>
+                        <th>Best For</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>9:16</strong></td>
+                        <td>1080 × 1920</td>
+                        <td>TikTok, Instagram Reels, YouTube Shorts, Snapchat, Stories</td>
+                    </tr>
+                    <tr>
+                        <td><strong>4:5</strong></td>
+                        <td>1080 × 1350</td>
+                        <td>LinkedIn Feed, Instagram Feed, Facebook Feed</td>
+                    </tr>
+                    <tr>
+                        <td><strong>1:1</strong></td>
+                        <td>1080 × 1080</td>
+                        <td>Multi-platform posts, LinkedIn, Facebook, Carousel Ads, Pinterest</td>
+                    </tr>
+                    <tr>
+                        <td><strong>16:9</strong></td>
+                        <td>1920 × 1080</td>
+                        <td>YouTube, Vimeo, Web embeds, TV/Streaming, X (Twitter), Webinars</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Original</strong></td>
+                        <td>No resizing</td>
+                        <td>Watermark only - preserves original dimensions</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="ratio-selector">
+                <div class="ratio-option">
+                    <input type="radio" name="aspectRatio" id="ratio-9-16" value="9:16">
+                    <label for="ratio-9-16">9:16<br><small>1080×1920</small></label>
+                </div>
+                <div class="ratio-option">
+                    <input type="radio" name="aspectRatio" id="ratio-4-5" value="4:5" checked>
+                    <label for="ratio-4-5">4:5<br><small>1080×1350</small></label>
+                </div>
+                <div class="ratio-option">
+                    <input type="radio" name="aspectRatio" id="ratio-1-1" value="1:1">
+                    <label for="ratio-1-1">1:1<br><small>1080×1080</small></label>
+                </div>
+                <div class="ratio-option">
+                    <input type="radio" name="aspectRatio" id="ratio-16-9" value="16:9">
+                    <label for="ratio-16-9">16:9<br><small>1920×1080</small></label>
+                </div>
+                <div class="ratio-option">
+                    <input type="radio" name="aspectRatio" id="ratio-original" value="original">
+                    <label for="ratio-original">Original<br><small>No resize</small></label>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 3: WATERMARK SETTINGS -->
+        <div class="section">
+            <h2>Step 3: Watermark Settings</h2>
+
+            <div class="collapsible" id="settingsToggle">
+                <span><strong>⚙️ Advanced Watermark Settings</strong> (click to expand)</span>
+                <span id="toggleIcon">▼</span>
+            </div>
+
+            <div class="collapsible-content" id="settingsContent">
+                <div class="settings-panel">
+                    <div class="settings-row">
+                        <div class="settings-group">
+                            <label for="barOpacity">Bar Opacity: <span id="opacityValue">75</span>%</label>
+                            <input type="range" id="barOpacity" min="0" max="100" value="75">
+                        </div>
+
+                        <div class="settings-group">
+                            <label for="barHeight">Bar Height (px @ 1080px width): <span id="heightValue">30</span></label>
+                            <input type="number" id="barHeight" min="10" max="100" value="30">
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="text1">Text 1 (Left):</label>
+                        <input type="text" id="text1" value="placement@kusom.edu.np">
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="text2">Text 2 (Center):</label>
+                        <input type="text" id="text2" value="KU SOM Placement Cell">
+                    </div>
+
+                    <div class="settings-group">
+                        <label for="text3">Text 3 (Right):</label>
+                        <input type="text" id="text3" value="@kusomplacementcell">
+                    </div>
+
+                    <button class="btn" id="updatePreviewBtn">Update Preview</button>
+                </div>
+            </div>
+
+            <div class="sample-preview">
+                <p><strong>Live Preview:</strong></p>
+                <canvas id="previewCanvas"></canvas>
+                <p style="margin-top: 10px; color: #666; font-size: 14px;">
+                    Preview shows watermark applied to the first uploaded image
+                </p>
+            </div>
+        </div>
+
+        <!-- STEP 4: PROCESS & DOWNLOAD -->
+        <div class="section">
+            <h2>Step 4: Process & Download</h2>
+
+            <div class="action-buttons">
+                <button class="btn" id="processBtn" disabled>
+                    🎨 Process All Photos
+                </button>
+                <button class="btn btn-secondary" id="downloadAllBtn" disabled>
+                    ⬇️ Download All (ZIP)
+                </button>
+                <button class="btn btn-secondary" id="saveToDriveBtn" disabled>
+                    💾 Save to Google Drive
+                </button>
+            </div>
+
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill">0%</div>
+                </div>
+                <p id="progressText" style="margin-top: 10px; text-align: center; color: #666;"></p>
+            </div>
+
+            <div id="resultsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        /*
+         * GOOGLE DRIVE SETUP INSTRUCTIONS:
+         *
+         * 1. Go to https://console.cloud.google.com/
+         * 2. Create a new project or select existing one
+         * 3. Enable Google Drive API and Google Picker API
+         * 4. Go to "Credentials" → "Create Credentials" → "OAuth client ID"
+         * 5. Application type: "Web application"
+         * 6. Add authorized JavaScript origins: your domain (or http://localhost for testing)
+         * 7. Copy the Client ID and paste it in the GOOGLE_CLIENT_ID variable below
+         * 8. Configure OAuth consent screen with appropriate scopes:
+         *    - https://www.googleapis.com/auth/drive.readonly
+         *    - https://www.googleapis.com/auth/drive.file
+         */
+
+        const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
+        const GOOGLE_API_KEY = 'YOUR_GOOGLE_API_KEY_HERE'; // Developer key for Picker API
+        const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
+        const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file';
+
+        // State management
+        let uploadedFiles = [];
+        let processedResults = [];
+        let googleAccessToken = null;
+        let pickerApiLoaded = false;
+        let gapiInited = false;
+        let gisInited = false;
+        let tokenClient;
+
+        // DOM elements
+        const fileInput = document.getElementById('fileInput');
+        const uploadZone = document.getElementById('uploadZone');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const processBtn = document.getElementById('processBtn');
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        const saveToDriveBtn = document.getElementById('saveToDriveBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const googleDriveBtn = document.getElementById('googleDriveBtn');
+        const googleDriveSection = document.getElementById('google-drive-section');
+        const settingsToggle = document.getElementById('settingsToggle');
+        const settingsContent = document.getElementById('settingsContent');
+        const toggleIcon = document.getElementById('toggleIcon');
+        const updatePreviewBtn = document.getElementById('updatePreviewBtn');
+
+        // Watermark settings
+        const barOpacity = document.getElementById('barOpacity');
+        const barHeight = document.getElementById('barHeight');
+        const text1Input = document.getElementById('text1');
+        const text2Input = document.getElementById('text2');
+        const text3Input = document.getElementById('text3');
+        const opacityValue = document.getElementById('opacityValue');
+        const heightValue = document.getElementById('heightValue');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', init);
+
+        function init() {
+            setupEventListeners();
+            initGoogleAPI();
+        }
+
+        function setupEventListeners() {
+            // File upload
+            uploadZone.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // Drag and drop
+            uploadZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadZone.classList.add('dragover');
+            });
+
+            uploadZone.addEventListener('dragleave', () => {
+                uploadZone.classList.remove('dragover');
+            });
+
+            uploadZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadZone.classList.remove('dragover');
+                handleFileSelect({ target: { files: e.dataTransfer.files } });
+            });
+
+            // Process button
+            processBtn.addEventListener('click', processAllPhotos);
+
+            // Download buttons
+            downloadAllBtn.addEventListener('click', downloadAllAsZip);
+            saveToDriveBtn.addEventListener('click', saveAllToDrive);
+
+            // Google Drive
+            googleDriveBtn.addEventListener('click', showGoogleDrivePicker);
+
+            // Settings panel toggle
+            settingsToggle.addEventListener('click', () => {
+                settingsContent.classList.toggle('open');
+                toggleIcon.textContent = settingsContent.classList.contains('open') ? '▲' : '▼';
+            });
+
+            // Settings controls
+            barOpacity.addEventListener('input', (e) => {
+                opacityValue.textContent = e.target.value;
+            });
+
+            barHeight.addEventListener('input', (e) => {
+                heightValue.textContent = e.target.value;
+            });
+
+            updatePreviewBtn.addEventListener('click', updatePreview);
+        }
+
+        // ==================== FILE HANDLING ====================
+
+        function handleFileSelect(e) {
+            const files = Array.from(e.target.files);
+
+            files.forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            uploadedFiles.push({
+                                file: file,
+                                name: file.name,
+                                url: e.target.result,
+                                img: img
+                            });
+
+                            addPreviewThumbnail(uploadedFiles.length - 1);
+                            updateUIState();
+
+                            // Update preview with first image
+                            if (uploadedFiles.length === 1) {
+                                updatePreview();
+                            }
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        function addPreviewThumbnail(index) {
+            const fileData = uploadedFiles[index];
+            const previewItem = document.createElement('div');
+            previewItem.className = 'preview-item';
+            previewItem.innerHTML = `
+                <img src="${fileData.url}" alt="${fileData.name}">
+                <div class="filename">${fileData.name}</div>
+                <button class="remove-btn" onclick="removeFile(${index})">×</button>
+            `;
+            previewContainer.appendChild(previewItem);
+        }
+
+        function removeFile(index) {
+            uploadedFiles.splice(index, 1);
+            previewContainer.innerHTML = '';
+            uploadedFiles.forEach((_, i) => addPreviewThumbnail(i));
+            updateUIState();
+
+            if (uploadedFiles.length > 0) {
+                updatePreview();
+            }
+        }
+
+        function updateUIState() {
+            processBtn.disabled = uploadedFiles.length === 0;
+            downloadAllBtn.disabled = processedResults.length === 0;
+            saveToDriveBtn.disabled = processedResults.length === 0 || !googleAccessToken;
+        }
+
+        // ==================== WATERMARK PROCESSING ====================
+
+        function updatePreview() {
+            if (uploadedFiles.length === 0) return;
+
+            const fileData = uploadedFiles[0];
+            const selectedRatio = document.querySelector('input[name="aspectRatio"]:checked').value;
+
+            processImage(fileData.img, fileData.name, selectedRatio, true);
+        }
+
+        function processImage(img, filename, aspectRatio, isPreview = false) {
+            return new Promise((resolve) => {
+                // Create canvas at original image size for watermarking
+                const originalCanvas = document.createElement('canvas');
+                const originalCtx = originalCanvas.getContext('2d', {
+                    alpha: true,
+                    desynchronized: false,
+                    willReadFrequently: false
+                });
+
+                originalCanvas.width = img.width;
+                originalCanvas.height = img.height;
+
+                // Enable high-quality rendering
+                originalCtx.imageSmoothingEnabled = true;
+                originalCtx.imageSmoothingQuality = 'high';
+
+                // Draw original image at full quality
+                originalCtx.drawImage(img, 0, 0, img.width, img.height);
+
+                // Apply watermark to original image
+                applyWatermark(originalCtx, img.width, img.height);
+
+                // Handle aspect ratio fitting
+                let finalCanvas;
+                if (aspectRatio === 'original') {
+                    finalCanvas = originalCanvas;
+                } else {
+                    finalCanvas = fitToAspectRatio(originalCanvas, aspectRatio);
+                }
+
+                // Update preview or return result
+                if (isPreview) {
+                    // Scale down for preview display with high quality
+                    const maxPreviewWidth = 800;
+                    const scale = Math.min(1, maxPreviewWidth / finalCanvas.width);
+                    previewCanvas.width = finalCanvas.width * scale;
+                    previewCanvas.height = finalCanvas.height * scale;
+                    const previewCtx = previewCanvas.getContext('2d', { alpha: true });
+
+                    // High-quality preview rendering
+                    previewCtx.imageSmoothingEnabled = true;
+                    previewCtx.imageSmoothingQuality = 'high';
+                    previewCtx.drawImage(finalCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+                    resolve(null);
+                } else {
+                    // Convert to blob for download at maximum quality
+                    finalCanvas.toBlob((blob) => {
+                        resolve({
+                            blob: blob,
+                            filename: filename.replace(/\.[^.]+$/, '_WM.png')
+                        });
+                    }, 'image/png', 1.0);  // Maximum quality
+                }
+            });
+        }
+
+        function applyWatermark(ctx, width, height) {
+            // Use 2x supersampling for crisp text rendering at any size
+            const superSample = 2;
+            const ssWidth = width * superSample;
+            const ssHeight = height * superSample;
+
+            // Create high-resolution canvas for watermark
+            const watermarkCanvas = document.createElement('canvas');
+            watermarkCanvas.width = ssWidth;
+            watermarkCanvas.height = ssHeight;
+            const wmCtx = watermarkCanvas.getContext('2d', {
+                alpha: true,
+                desynchronized: false,
+                willReadFrequently: false
+            });
+
+            // Disable smoothing for sharp text at high resolution
+            wmCtx.imageSmoothingEnabled = false;
+
+            // Calculate bar dimensions (scaled proportionally to image width)
+            const baseWidth = 1080;
+            const baseBarHeight = parseInt(barHeight.value);
+            const scaledBarHeight = (baseBarHeight * (width / baseWidth)) * superSample;
+
+            // Bar position: bottom edge at 2/3 of height (top of bottom third)
+            const barBottomY = (ssHeight / 3) * 2;
+            const barTopY = barBottomY - scaledBarHeight;
+
+            // Draw bar at high resolution
+            const opacity = parseInt(barOpacity.value) / 100;
+            wmCtx.fillStyle = `rgba(119, 36, 28, ${opacity})`;
+            wmCtx.fillRect(0, barTopY, ssWidth, scaledBarHeight);
+
+            // Text settings - render at high resolution for maximum sharpness
+            const fontSize = Math.round(scaledBarHeight * 0.4);
+            wmCtx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+            wmCtx.fillStyle = '#FFFFFF';
+            wmCtx.textBaseline = 'middle';
+
+            // Get text values
+            const texts = [
+                text1Input.value,
+                text2Input.value,
+                text3Input.value
+            ];
+
+            // Calculate text positions (evenly distributed)
+            const barCenterY = barTopY + (scaledBarHeight / 2);
+            const margin = ssWidth * 0.05; // 5% margin on each side
+
+            // Draw texts at high resolution with integer coordinates
+            // Left text
+            wmCtx.textAlign = 'left';
+            wmCtx.fillText(texts[0], Math.round(margin), Math.round(barCenterY));
+
+            // Center text
+            wmCtx.textAlign = 'center';
+            wmCtx.fillText(texts[1], Math.round(ssWidth / 2), Math.round(barCenterY));
+
+            // Right text
+            wmCtx.textAlign = 'right';
+            wmCtx.fillText(texts[2], Math.round(ssWidth - margin), Math.round(barCenterY));
+
+            // Now downsample the high-res watermark onto the original canvas for sharp rendering
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(watermarkCanvas, 0, 0, ssWidth, ssHeight, 0, 0, width, height);
+        }
+
+        function fitToAspectRatio(sourceCanvas, aspectRatio) {
+            // Parse aspect ratio
+            const [ratioW, ratioH] = aspectRatio.split(':').map(Number);
+
+            // Determine target dimensions - use higher resolution for better quality
+            let targetWidth, targetHeight;
+
+            // Use high-resolution outputs (2x standard for better quality)
+            const resolutions = {
+                '9:16': { w: 1080, h: 1920 },
+                '4:5': { w: 1080, h: 1350 },
+                '1:1': { w: 1080, h: 1080 },
+                '16:9': { w: 1920, h: 1080 }
+            };
+
+            if (resolutions[aspectRatio]) {
+                targetWidth = resolutions[aspectRatio].w;
+                targetHeight = resolutions[aspectRatio].h;
+            } else {
+                // Fallback calculation
+                targetWidth = 1080;
+                targetHeight = Math.round(targetWidth * (ratioH / ratioW));
+            }
+
+            // Create target canvas with padding color
+            const targetCanvas = document.createElement('canvas');
+            targetCanvas.width = targetWidth;
+            targetCanvas.height = targetHeight;
+            const targetCtx = targetCanvas.getContext('2d', {
+                alpha: true,
+                desynchronized: false,
+                willReadFrequently: false
+            });
+
+            // Enable high-quality image smoothing
+            targetCtx.imageSmoothingEnabled = true;
+            targetCtx.imageSmoothingQuality = 'high';
+
+            // Fill background with brand color (solid, no opacity)
+            targetCtx.fillStyle = '#77241C';
+            targetCtx.fillRect(0, 0, targetWidth, targetHeight);
+
+            // Calculate scaling to fit source image within target canvas
+            const sourceAspect = sourceCanvas.width / sourceCanvas.height;
+            const targetAspect = targetWidth / targetHeight;
+
+            let drawWidth, drawHeight, drawX, drawY;
+
+            if (sourceAspect > targetAspect) {
+                // Source is wider - fit to width
+                drawWidth = targetWidth;
+                drawHeight = targetWidth / sourceAspect;
+                drawX = 0;
+                drawY = (targetHeight - drawHeight) / 2;
+            } else {
+                // Source is taller - fit to height
+                drawHeight = targetHeight;
+                drawWidth = targetHeight * sourceAspect;
+                drawX = (targetWidth - drawWidth) / 2;
+                drawY = 0;
+            }
+
+            // Round positions to avoid sub-pixel rendering blur
+            drawX = Math.round(drawX);
+            drawY = Math.round(drawY);
+            drawWidth = Math.round(drawWidth);
+            drawHeight = Math.round(drawHeight);
+
+            // Draw scaled image centered with high-quality interpolation
+            // Use source dimensions for best quality when scaling
+            targetCtx.drawImage(
+                sourceCanvas,
+                0, 0, sourceCanvas.width, sourceCanvas.height,  // Source rectangle
+                drawX, drawY, drawWidth, drawHeight              // Destination rectangle
+            );
+
+            return targetCanvas;
+        }
+
+        // ==================== BATCH PROCESSING ====================
+
+        async function processAllPhotos() {
+            processedResults = [];
+            progressContainer.style.display = 'block';
+            processBtn.disabled = true;
+
+            const selectedRatio = document.querySelector('input[name="aspectRatio"]:checked').value;
+            const total = uploadedFiles.length;
+
+            for (let i = 0; i < total; i++) {
+                const fileData = uploadedFiles[i];
+                const result = await processImage(fileData.img, fileData.name, selectedRatio, false);
+                processedResults.push(result);
+
+                const progress = Math.round(((i + 1) / total) * 100);
+                progressFill.style.width = progress + '%';
+                progressFill.textContent = progress + '%';
+                progressText.textContent = `Processing ${i + 1} of ${total}...`;
+            }
+
+            progressText.innerHTML = '<strong style="color: #2e7d32;">✓ Processing complete!</strong>';
+            updateUIState();
+        }
+
+        // ==================== DOWNLOAD ====================
+
+        async function downloadAllAsZip() {
+            if (processedResults.length === 0) return;
+
+            const zip = new JSZip();
+
+            processedResults.forEach(result => {
+                zip.file(result.filename, result.blob);
+            });
+
+            const content = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `KUSOM_Watermarked_Photos_${Date.now()}.zip`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ==================== GOOGLE DRIVE INTEGRATION ====================
+
+        function initGoogleAPI() {
+            // Load the Google API client
+            gapi.load('client:picker', initializeGapiClient);
+
+            // Initialize Google Identity Services
+            google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: handleCredentialResponse
+            });
+
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: SCOPES,
+                callback: (response) => {
+                    if (response.access_token) {
+                        googleAccessToken = response.access_token;
+                        createPicker();
+                    }
+                }
+            });
+
+            gisInited = true;
+        }
+
+        async function initializeGapiClient() {
+            try {
+                await gapi.client.init({
+                    apiKey: GOOGLE_API_KEY,
+                    discoveryDocs: DISCOVERY_DOCS,
+                });
+                gapiInited = true;
+                pickerApiLoaded = true;
+            } catch (error) {
+                console.error('Error initializing GAPI client:', error);
+            }
+        }
+
+        function handleCredentialResponse(response) {
+            // Handle the credential response if needed
+        }
+
+        function showGoogleDrivePicker() {
+            if (!gapiInited || !gisInited) {
+                alert('Google API is still loading. Please wait a moment and try again.');
+                return;
+            }
+
+            tokenClient.requestAccessToken({ prompt: 'consent' });
+        }
+
+        function createPicker() {
+            if (!pickerApiLoaded || !googleAccessToken) {
+                return;
+            }
+
+            const picker = new google.picker.PickerBuilder()
+                .addView(google.picker.ViewId.DOCS_IMAGES)
+                .setOAuthToken(googleAccessToken)
+                .setDeveloperKey(GOOGLE_API_KEY)
+                .setCallback(pickerCallback)
+                .setTitle('Select Photos from Google Drive')
+                .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+                .build();
+
+            picker.setVisible(true);
+        }
+
+        async function pickerCallback(data) {
+            if (data[google.picker.Response.ACTION] === google.picker.Action.PICKED) {
+                const docs = data[google.picker.Response.DOCUMENTS];
+
+                for (const doc of docs) {
+                    await downloadFromDrive(doc.id, doc.name);
+                }
+            }
+        }
+
+        async function downloadFromDrive(fileId, fileName) {
+            try {
+                const response = await gapi.client.drive.files.get({
+                    fileId: fileId,
+                    alt: 'media'
+                }, {
+                    responseType: 'blob'
+                });
+
+                const blob = response.body;
+                const reader = new FileReader();
+
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        uploadedFiles.push({
+                            file: new File([blob], fileName),
+                            name: fileName,
+                            url: e.target.result,
+                            img: img
+                        });
+
+                        addPreviewThumbnail(uploadedFiles.length - 1);
+                        updateUIState();
+
+                        if (uploadedFiles.length === 1) {
+                            updatePreview();
+                        }
+                    };
+                    img.src = e.target.result;
+                };
+
+                reader.readAsDataURL(blob);
+            } catch (error) {
+                console.error('Error downloading from Drive:', error);
+            }
+        }
+
+        async function saveAllToDrive() {
+            if (!googleAccessToken || processedResults.length === 0) {
+                alert('Please sign in to Google Drive first and process photos.');
+                return;
+            }
+
+            const folderName = `KUSOM_Watermarked_${Date.now()}`;
+
+            try {
+                // Create a folder
+                const folderMetadata = {
+                    name: folderName,
+                    mimeType: 'application/vnd.google-apps.folder'
+                };
+
+                const folderResponse = await gapi.client.drive.files.create({
+                    resource: folderMetadata,
+                    fields: 'id'
+                });
+
+                const folderId = folderResponse.result.id;
+
+                // Upload each file to the folder
+                for (let i = 0; i < processedResults.length; i++) {
+                    const result = processedResults[i];
+                    await uploadToDrive(result.blob, result.filename, folderId);
+
+                    progressText.textContent = `Uploading to Drive: ${i + 1} of ${processedResults.length}...`;
+                }
+
+                alert(`Successfully saved ${processedResults.length} photos to Google Drive folder: ${folderName}`);
+                progressText.innerHTML = '<strong style="color: #2e7d32;">✓ Upload to Drive complete!</strong>';
+            } catch (error) {
+                console.error('Error saving to Drive:', error);
+                alert('Error saving to Google Drive. Please try again.');
+            }
+        }
+
+        async function uploadToDrive(blob, filename, folderId) {
+            const metadata = {
+                name: filename,
+                parents: [folderId]
+            };
+
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+            form.append('file', blob);
+
+            const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + googleAccessToken
+                },
+                body: form
+            });
+
+            return response.json();
+        }
+    </script>
+</body>
+</html>
