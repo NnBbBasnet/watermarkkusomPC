@@ -2,24 +2,62 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KUSOM Placement Cell - Photo Watermark Tool</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>KUSOM Photo Watermark Tool</title>
 
-    <!-- JSZip for creating downloadable zip files -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --primary: #77241C;
+            --primary-dark: #5a1b15;
+            --primary-light: #fff5f4;
+            --text: #212529;
+            --text-muted: #6c757d;
+            --border: #dee2e6;
+            --bg: #f8f9fa;
+            --white: #ffffff;
+            --success: #28a745;
+            --info: #17a2b8;
+            --shadow: 0 2px 8px rgba(0,0,0,0.08);
+            --shadow-lg: 0 4px 16px rgba(0,0,0,0.12);
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-            background: #f5f5f5;
-            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
             line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 24px 20px;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+
+        .header h1 {
+            font-size: clamp(20px, 5vw, 32px);
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .header p {
+            font-size: clamp(13px, 3vw, 16px);
+            opacity: 0.95;
         }
 
         .container {
@@ -28,1024 +66,1499 @@
             padding: 20px;
         }
 
-        header {
-            background: #77241C;
-            color: white;
-            padding: 20px;
-            margin-bottom: 40px;
-            border-radius: 8px;
-            text-align: center;
+        .main-grid {
+            display: grid;
+            gap: 20px;
         }
 
-        header h1 {
-            font-size: 28px;
-            margin-bottom: 5px;
+        @media (min-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr 480px;
+            }
         }
 
-        header p {
-            opacity: 0.9;
+        .card {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--shadow);
         }
 
-        .section {
-            background: white;
-            padding: 25px;
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
             margin-bottom: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .section h2 {
-            color: #77241C;
-            margin-bottom: 15px;
+        .settings-icon {
+            margin-left: auto;
+            cursor: pointer;
             font-size: 20px;
-            border-bottom: 2px solid #77241C;
-            padding-bottom: 8px;
+            opacity: 0.6;
+            transition: all 0.2s;
+            padding: 4px;
         }
 
+        .settings-icon:hover {
+            opacity: 1;
+            transform: rotate(90deg);
+        }
+
+        .badge {
+            background: var(--primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-left: auto;
+        }
+
+        /* Upload Zone */
         .upload-zone {
-            border: 3px dashed #ccc;
-            border-radius: 8px;
-            padding: 40px;
+            border: 3px dashed var(--border);
+            border-radius: 16px;
+            padding: 48px 24px;
             text-align: center;
             cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: 15px;
+            transition: all 0.3s ease;
+            background: var(--bg);
         }
 
         .upload-zone:hover,
-        .upload-zone.dragover {
-            border-color: #77241C;
-            background: #fff5f4;
+        .upload-zone.active {
+            border-color: var(--primary);
+            background: var(--primary-light);
+            transform: translateY(-2px);
         }
 
-        .upload-zone input[type="file"] {
+        .upload-zone input {
             display: none;
         }
 
         .upload-icon {
-            font-size: 48px;
-            margin-bottom: 10px;
+            font-size: 56px;
+            margin-bottom: 12px;
+            animation: float 3s ease-in-out infinite;
         }
 
-        .btn {
-            background: #77241C;
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .upload-text {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .upload-subtext {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        /* Preview Grid */
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .preview-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            }
+        }
+
+        .preview-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--bg);
+            box-shadow: var(--shadow);
+            transition: transform 0.2s;
+        }
+
+        .preview-item:hover {
+            transform: scale(1.05);
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .preview-item .remove {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: rgba(220, 53, 69, 0.95);
             color: white;
             border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            font-size: 18px;
             cursor: pointer;
-            font-size: 16px;
-            margin: 5px;
-            transition: background 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+            font-weight: bold;
+            line-height: 1;
         }
 
-        .btn:hover {
-            background: #5a1b15;
+        .preview-item:hover .remove {
+            opacity: 1;
         }
 
-        .btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-
-        .btn-secondary {
-            background: #666;
-        }
-
-        .btn-secondary:hover {
-            background: #444;
-        }
-
-        .aspect-ratio-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 15px 0;
-        }
-
-        .aspect-ratio-table th,
-        .aspect-ratio-table td {
-            padding: 12px;
-            text-align: left;
-            border: 1px solid #ddd;
-        }
-
-        .aspect-ratio-table th {
-            background: #77241C;
-            color: white;
-            font-weight: 600;
-        }
-
-        .aspect-ratio-table tr:nth-child(even) {
-            background: #f9f9f9;
-        }
-
-        .ratio-selector {
+        /* Aspect Ratio Selector */
+        .ratio-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-            margin: 15px 0;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
         }
 
         .ratio-option {
             position: relative;
         }
 
-        .ratio-option input[type="radio"] {
-            display: none;
+        .ratio-option input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
         }
 
         .ratio-option label {
             display: block;
-            padding: 15px;
-            background: white;
-            border: 2px solid #ddd;
-            border-radius: 6px;
+            padding: 20px 16px;
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 12px;
             cursor: pointer;
             text-align: center;
-            transition: all 0.3s;
-            font-weight: 500;
-        }
-
-        .ratio-option input[type="radio"]:checked + label {
-            background: #77241C;
-            color: white;
-            border-color: #77241C;
+            transition: all 0.2s;
+            font-weight: 600;
         }
 
         .ratio-option label:hover {
-            border-color: #77241C;
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
         }
 
-        .settings-panel {
-            background: #f9f9f9;
-            padding: 20px;
-            border-radius: 6px;
-            margin: 15px 0;
+        .ratio-option input:checked + label {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: var(--shadow-lg);
         }
 
-        .settings-group {
-            margin-bottom: 15px;
-        }
-
-        .settings-group label {
+        .ratio-name {
             display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            color: #555;
+            font-size: 18px;
+            margin-bottom: 4px;
         }
 
-        .settings-group input[type="number"],
-        .settings-group input[type="text"] {
+        .ratio-desc {
+            display: block;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        /* Settings Panel */
+        .settings-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: var(--bg);
+            border-radius: 12px;
+            cursor: pointer;
+            margin-bottom: 16px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .settings-toggle:hover {
+            background: var(--primary-light);
+        }
+
+        .settings-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+        }
+
+        .settings-content.open {
+            max-height: 800px;
+        }
+
+        .setting-group {
+            margin-bottom: 20px;
+        }
+
+        .setting-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .setting-input {
             width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .setting-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+        }
+
+        .slider-wrapper {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .slider {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 8px;
             border-radius: 4px;
+            background: var(--border);
+            outline: none;
+            position: relative;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            border: none;
+        }
+
+        .slider-value {
+            min-width: 50px;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--primary);
+            text-align: right;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .slider-value:hover {
+            background: var(--primary-light);
+            border-color: var(--border);
+        }
+
+        .slider-value-input {
+            width: 50px;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--primary);
+            text-align: right;
+            padding: 4px 8px;
+            border: 2px solid var(--primary);
+            border-radius: 6px;
+            background: white;
+        }
+
+        /* Preview Canvas */
+        .preview-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: var(--bg);
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .preview-container canvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            display: inline-block;
+        }
+
+        .preview-hint {
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        @media (min-width: 1024px) {
+            .right-column {
+                position: sticky;
+                top: 20px;
+                align-self: start;
+            }
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 16px 24px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: var(--shadow);
+        }
+
+        .btn:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: var(--border);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: var(--text-muted);
+            margin-top: 12px;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #5a6268;
+        }
+
+        .btn-icon {
+            font-size: 20px;
+        }
+
+        /* Reset to Default Button */
+        .reset-defaults-btn {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg);
+            color: var(--text);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 16px;
+        }
+
+        .reset-defaults-btn:hover {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Hidden Admin Panel */
+        .admin-trigger {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            width: 30px;
+            height: 30px;
+            opacity: 0.05;
+            cursor: pointer;
+            z-index: 9999;
+        }
+
+        .admin-panel {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            z-index: 10000;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .admin-panel.show {
+            display: block;
+        }
+
+        .admin-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+        }
+
+        .admin-overlay.show {
+            display: block;
+        }
+
+        .admin-panel h3 {
+            color: var(--primary);
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .admin-setting {
+            margin-bottom: 16px;
+        }
+
+        .admin-setting label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+
+        .admin-setting input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
             font-size: 14px;
         }
 
-        .settings-group input[type="range"] {
-            width: 100%;
+        .admin-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
         }
 
-        .settings-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        .preview-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .preview-item {
-            position: relative;
-            background: #f9f9f9;
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #ddd;
-        }
-
-        .preview-item img {
-            width: 100%;
-            height: auto;
-            border-radius: 4px;
-        }
-
-        .preview-item .filename {
-            margin-top: 8px;
-            font-size: 12px;
-            color: #666;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .preview-item .remove-btn {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: rgba(255, 0, 0, 0.8);
-            color: white;
+        .admin-buttons button {
+            flex: 1;
+            padding: 12px;
             border: none;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
+            border-radius: 8px;
+            font-weight: 600;
             cursor: pointer;
-            font-size: 16px;
-            line-height: 1;
+            transition: all 0.2s;
         }
 
+        .admin-save {
+            background: var(--primary);
+            color: white;
+        }
+
+        .admin-save:hover {
+            background: var(--primary-dark);
+        }
+
+        .admin-cancel {
+            background: var(--border);
+            color: var(--text);
+        }
+
+        .admin-cancel:hover {
+            background: #adb5bd;
+        }
+
+        /* Progress Bar */
         .progress-container {
-            display: none;
             margin: 20px 0;
+            display: none;
+        }
+
+        .progress-container.show {
+            display: block;
+        }
+
+        .progress-bar-wrapper {
+            width: 100%;
+            height: 48px;
+            background: var(--bg);
+            border-radius: 24px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .progress-bar {
-            width: 100%;
-            height: 40px;
-            background: #f0f0f0;
-            border-radius: 15px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #77241C, #a02f25);
+            background: linear-gradient(90deg, var(--primary), #a02f25);
             width: 0%;
-            transition: width 0.3s;
+            transition: width 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-weight: 500;
-            font-size: 14px;
+            font-weight: 700;
+            font-size: 15px;
         }
 
-        .sample-preview {
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 15px 0;
+        /* Status Messages */
+        .status-message {
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 16px;
+            display: none;
             text-align: center;
         }
 
-        .sample-preview canvas {
-            max-width: 100%;
-            height: auto;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+        .status-message.show {
+            display: block;
         }
 
-        .collapsible {
-            cursor: pointer;
-            user-select: none;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            background: #f0f0f0;
-            border-radius: 4px;
-            margin-bottom: 10px;
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
         }
 
-        .collapsible:hover {
-            background: #e5e5e5;
+        .status-message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 2px solid #bee5eb;
         }
 
-        .collapsible-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
+        .status-message.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffeaa7;
         }
 
-        .collapsible-content.open {
-            max-height: 2000px;
+        /* Info Box */
+        .info-box {
+            padding: 16px;
+            background: var(--primary-light);
+            border-left: 4px solid var(--primary);
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text);
+            margin-bottom: 20px;
         }
 
-        .alert {
-            padding: 12px 16px;
-            border-radius: 6px;
-            margin: 15px 0;
+        .info-box strong {
+            color: var(--primary);
         }
 
-        .alert-info {
-            background: #e3f2fd;
-            color: #1565c0;
-            border-left: 4px solid #1565c0;
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
         }
 
-        .alert-success {
-            background: #e8f5e9;
-            color: #2e7d32;
-            border-left: 4px solid #2e7d32;
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
         }
 
-        .alert-warning {
-            background: #fff3e0;
-            color: #e65100;
-            border-left: 4px solid #e65100;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 20px;
-        }
-
+        /* Responsive */
         @media (max-width: 768px) {
-            .settings-row {
-                grid-template-columns: 1fr;
+            .container {
+                padding: 16px;
             }
 
-            .ratio-selector {
-                grid-template-columns: 1fr;
+            .card {
+                padding: 20px;
             }
+
+            .upload-zone {
+                padding: 36px 20px;
+            }
+
+            .ratio-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Animations */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .card {
+            animation: slideIn 0.4s ease;
         }
     </style>
 </head>
 <body>
+    <div class="header">
+        <h1>📸 KUSOM Photo Watermark Tool</h1>
+        <p>Add watermarks and format photos for social media</p>
+    </div>
+
     <div class="container">
-        <header>
-            <h1>📸 KUSOM Placement Cell Photo Watermark Tool</h1>
-            <p>Bulk watermark and format photos for social media</p>
-        </header>
+        <div class="main-grid">
+            <!-- Left Column -->
+            <div class="left-column">
+                <!-- Upload Section -->
+                <div class="card">
+                    <div class="card-title">
+                        <span>📁 Upload Photos</span>
+                        <span class="badge" id="photoCount">0</span>
+                    </div>
 
-        <!-- STEP 1: UPLOAD -->
-        <div class="section">
-            <h2>Step 1: Upload Photos</h2>
-            <div class="upload-zone" id="uploadZone">
-                <div class="upload-icon">📁</div>
-                <p><strong>Click to upload</strong> or drag and drop photos here</p>
-                <p style="color: #666; font-size: 14px; margin-top: 5px;">Supports JPG, PNG, multiple files</p>
-                <input type="file" id="fileInput" accept="image/*" multiple>
-            </div>
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="upload-icon">📷</div>
+                        <div class="upload-text">Click or drag photos here</div>
+                        <div class="upload-subtext">Supports JPG, PNG • Multiple files</div>
+                        <input type="file" id="fileInput" accept="image/*" multiple>
+                    </div>
 
-            <div style="text-align: center; margin: 15px 0;">
-                <p style="color: #666; font-size: 14px;">Supports JPG, PNG, multiple files</p>
-            </div>
-
-            <div class="preview-container" id="previewContainer"></div>
-        </div>
-
-        <!-- STEP 2: ASPECT RATIO -->
-        <div class="section">
-            <h2>Step 2: Choose Aspect Ratio</h2>
-
-            <div class="alert alert-info">
-                <strong>Reference Guide:</strong> Each aspect ratio is optimized for specific platforms
-            </div>
-
-            <table class="aspect-ratio-table">
-                <thead>
-                    <tr>
-                        <th>Aspect Ratio</th>
-                        <th>Resolution</th>
-                        <th>Best For</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>9:16</strong></td>
-                        <td>1080 × 1920</td>
-                        <td>TikTok, Instagram Reels, YouTube Shorts, Snapchat, Stories</td>
-                    </tr>
-                    <tr>
-                        <td><strong>4:5</strong></td>
-                        <td>1080 × 1350</td>
-                        <td>LinkedIn Feed, Instagram Feed, Facebook Feed</td>
-                    </tr>
-                    <tr>
-                        <td><strong>1:1</strong></td>
-                        <td>1080 × 1080</td>
-                        <td>Multi-platform posts, LinkedIn, Facebook, Carousel Ads, Pinterest</td>
-                    </tr>
-                    <tr>
-                        <td><strong>16:9</strong></td>
-                        <td>1920 × 1080</td>
-                        <td>YouTube, Vimeo, Web embeds, TV/Streaming, X (Twitter), Webinars</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Original</strong></td>
-                        <td>No resizing</td>
-                        <td>Watermark only - preserves original dimensions</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <div class="ratio-selector">
-                <div class="ratio-option">
-                    <input type="radio" name="aspectRatio" id="ratio-9-16" value="9:16">
-                    <label for="ratio-9-16">9:16<br><small>1080×1920</small></label>
+                    <div class="preview-grid" id="previewGrid"></div>
                 </div>
-                <div class="ratio-option">
-                    <input type="radio" name="aspectRatio" id="ratio-4-5" value="4:5" checked>
-                    <label for="ratio-4-5">4:5<br><small>1080×1350</small></label>
-                </div>
-                <div class="ratio-option">
-                    <input type="radio" name="aspectRatio" id="ratio-1-1" value="1:1">
-                    <label for="ratio-1-1">1:1<br><small>1080×1080</small></label>
-                </div>
-                <div class="ratio-option">
-                    <input type="radio" name="aspectRatio" id="ratio-16-9" value="16:9">
-                    <label for="ratio-16-9">16:9<br><small>1920×1080</small></label>
-                </div>
-                <div class="ratio-option">
-                    <input type="radio" name="aspectRatio" id="ratio-original" value="original">
-                    <label for="ratio-original">Original<br><small>No resize</small></label>
-                </div>
-            </div>
-        </div>
 
-        <!-- STEP 3: WATERMARK SETTINGS -->
-        <div class="section">
-            <h2>Step 3: Watermark Settings</h2>
+                <!-- Aspect Ratio -->
+                <div class="card">
+                    <div class="card-title">📐 Format</div>
 
-            <div class="collapsible" id="settingsToggle">
-                <span><strong>⚙️ Advanced Watermark Settings</strong> (click to expand)</span>
-                <span id="toggleIcon">▼</span>
-            </div>
+                    <div class="info-box">
+                        <strong>Quick Guide:</strong> 9:16 for Stories/Reels • 4:5 for Feed Posts • 1:1 for Square • 16:9 for YouTube
+                    </div>
 
-            <div class="collapsible-content" id="settingsContent">
-                <div class="settings-panel">
-                    <div class="settings-row">
-                        <div class="settings-group">
-                            <label for="barOpacity">Bar Opacity: <span id="opacityValue">75</span>%</label>
-                            <input type="range" id="barOpacity" min="0" max="100" value="75">
+                    <div class="ratio-grid">
+                        <div class="ratio-option">
+                            <input type="radio" name="ratio" id="ratio1" value="9:16">
+                            <label for="ratio1">
+                                <span class="ratio-name">9:16</span>
+                                <span class="ratio-desc">Stories & Reels</span>
+                            </label>
                         </div>
-
-                        <div class="settings-group">
-                            <label for="barHeight">Bar Height (px @ 1080px width): <span id="heightValue">40</span></label>
-                            <input type="range" id="barHeight" min="10" max="100" value="40">
-                            <input type="number" id="barHeightNumber" min="10" max="100" value="40" style="margin-top: 8px;">
+                        <div class="ratio-option">
+                            <input type="radio" name="ratio" id="ratio2" value="4:5" checked>
+                            <label for="ratio2">
+                                <span class="ratio-name">4:5</span>
+                                <span class="ratio-desc">Feed Posts</span>
+                            </label>
+                        </div>
+                        <div class="ratio-option">
+                            <input type="radio" name="ratio" id="ratio3" value="1:1">
+                            <label for="ratio3">
+                                <span class="ratio-name">1:1</span>
+                                <span class="ratio-desc">Square</span>
+                            </label>
+                        </div>
+                        <div class="ratio-option">
+                            <input type="radio" name="ratio" id="ratio4" value="16:9">
+                            <label for="ratio4">
+                                <span class="ratio-name">16:9</span>
+                                <span class="ratio-desc">YouTube</span>
+                            </label>
+                        </div>
+                        <div class="ratio-option">
+                            <input type="radio" name="ratio" id="ratio5" value="original">
+                            <label for="ratio5">
+                                <span class="ratio-name">Original</span>
+                                <span class="ratio-desc">No Resize</span>
+                            </label>
                         </div>
                     </div>
-
-                    <div class="settings-group">
-                        <label for="text1">Text 1 (Left):</label>
-                        <input type="text" id="text1" value="placement@kusom.edu.np">
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="text2">Text 2 (Center):</label>
-                        <input type="text" id="text2" value="KU SOM Placement Cell">
-                    </div>
-
-                    <div class="settings-group">
-                        <label for="text3">Text 3 (Right):</label>
-                        <input type="text" id="text3" value="@kusomplacementcell">
-                    </div>
                 </div>
             </div>
 
-            <div class="sample-preview">
-                <p><strong>Live Preview:</strong></p>
-                <canvas id="previewCanvas"></canvas>
-                <p style="margin-top: 10px; color: #666; font-size: 14px;">
-                    Preview shows watermark applied to the first uploaded image
-                </p>
+            <!-- Right Column -->
+            <div class="right-column">
+                <!-- Watermark Settings -->
+                <div class="card">
+                    <div class="card-title">
+                        <span id="adminSettingsIcon" style="cursor: pointer;" title="Admin: Change Global Defaults">⚙️</span>
+                        <span>Watermark</span>
+                    </div>
+
+                    <div class="settings-toggle" id="settingsToggle">
+                        <span>Customize Settings</span>
+                        <span id="toggleIcon">▼</span>
+                    </div>
+
+                    <div class="settings-content" id="settingsContent">
+                        <div class="setting-group">
+                            <label class="setting-label">Bar Opacity</label>
+                            <div class="slider-container">
+                                <div class="slider-wrapper">
+                                    <input type="range" class="slider" id="opacitySlider" min="0" max="100" value="75">
+                                </div>
+                                <span class="slider-value" id="opacityValue">75%</span>
+                            </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label">Bar Height</label>
+                            <div class="slider-container">
+                                <div class="slider-wrapper">
+                                    <input type="range" class="slider" id="heightSlider" min="10" max="100" value="40">
+                                </div>
+                                <span class="slider-value" id="heightValue">40px</span>
+                            </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label">Watermark Position (Vertical)</label>
+                            <div class="slider-container">
+                                <div class="slider-wrapper">
+                                    <input type="range" class="slider" id="positionSlider" min="0" max="100" value="67">
+                                </div>
+                                <span class="slider-value" id="positionValue">67%</span>
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                                0% = Top • 50% = Middle • 67% = Default • 100% = Bottom
+                            </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label">Left Text</label>
+                            <input type="text" class="setting-input" id="text1" value="placement@kusom.edu.np">
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label">Center Text</label>
+                            <input type="text" class="setting-input" id="text2" value="KU SOM Placement Cell">
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label">Right Text</label>
+                            <input type="text" class="setting-input" id="text3" value="@kusomplacementcell">
+                        </div>
+
+                        <button class="reset-defaults-btn" id="resetDefaultsBtn">
+                            🔄 Reset to Default Settings
+                        </button>
+                    </div>
+
+                    <div class="preview-container">
+                        <canvas id="previewCanvas"></canvas>
+                        <div class="preview-hint">Live preview • Updates as you change settings</div>
+                    </div>
+                </div>
+
+                <!-- Download Section -->
+                <div class="card">
+                    <div class="card-title">💾 Download</div>
+
+                    <button class="btn" id="downloadAllBtn" disabled>
+                        <span class="btn-icon">📥</span>
+                        <span>Save All to Gallery</span>
+                    </button>
+
+                    <button class="btn btn-secondary" id="downloadZipBtn" disabled>
+                        <span class="btn-icon">📦</span>
+                        <span>Download as ZIP</span>
+                    </button>
+
+                    <div class="progress-container" id="progressContainer">
+                        <div class="progress-bar-wrapper">
+                            <div class="progress-bar" id="progressBar">0%</div>
+                        </div>
+                    </div>
+
+                    <div class="status-message" id="statusMessage"></div>
+                </div>
             </div>
         </div>
+    </div>
 
-        <!-- STEP 4: DOWNLOAD -->
-        <div class="section">
-            <h2>Step 4: Download</h2>
-
-            <div class="action-buttons">
-                <button class="btn" id="downloadAllBtn" disabled>
-                    📦 Download as ZIP
-                </button>
-                <button class="btn" id="downloadIndividualBtn" disabled>
-                    🖼️ Save to Photos/Gallery
-                </button>
-            </div>
-
-            <div class="progress-container" id="progressContainer">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill">0%</div>
-                </div>
-                <p id="progressText" style="margin-top: 10px; text-align: center; color: #666;"></p>
-            </div>
-
-            <div id="resultsContainer"></div>
+    <!-- Hidden Admin Panel -->
+    <div class="admin-trigger" id="adminTrigger"></div>
+    <div class="admin-overlay" id="adminOverlay"></div>
+    <div class="admin-panel" id="adminPanel">
+        <h3>🔧 Admin: Set Global Defaults</h3>
+        <div class="admin-setting">
+            <label>Default Opacity (%)</label>
+            <input type="number" id="adminOpacity" min="0" max="100" value="75">
+        </div>
+        <div class="admin-setting">
+            <label>Default Bar Height (px)</label>
+            <input type="number" id="adminHeight" min="10" max="100" value="40">
+        </div>
+        <div class="admin-setting">
+            <label>Default Position (%)</label>
+            <input type="number" id="adminPosition" min="0" max="100" value="67">
+        </div>
+        <div class="admin-setting">
+            <label>Default Left Text</label>
+            <input type="text" id="adminText1" value="placement@kusom.edu.np">
+        </div>
+        <div class="admin-setting">
+            <label>Default Center Text</label>
+            <input type="text" id="adminText2" value="KU SOM Placement Cell">
+        </div>
+        <div class="admin-setting">
+            <label>Default Right Text</label>
+            <input type="text" id="adminText3" value="@kusomplacementcell">
+        </div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: 12px; padding: 10px; background: var(--bg); border-radius: 6px;">
+            💡 These defaults will apply to all users using this HTML file and persist in browser storage.
+        </div>
+        <div class="admin-buttons">
+            <button class="admin-save" id="adminSave">Save Defaults</button>
+            <button class="admin-cancel" id="adminCancel">Cancel</button>
         </div>
     </div>
 
     <script>
-        // State management
-        let uploadedFiles = [];
-        let processedResults = [];
+        // ==================== GLOBAL DEFAULTS (Admin Configurable) ====================
+        let DEFAULTS = {
+            opacity: 75,
+            height: 40,
+            position: 67,
+            text1: "placement@kusom.edu.np",
+            text2: "KU SOM Placement Cell",
+            text3: "@kusomplacementcell"
+        };
 
-        // DOM elements
-        const fileInput = document.getElementById('fileInput');
+        // Load defaults from localStorage if available
+        function loadDefaults() {
+            const saved = localStorage.getItem('watermarkDefaults');
+            if (saved) {
+                DEFAULTS = JSON.parse(saved);
+            }
+        }
+
+        // Save defaults to localStorage
+        function saveDefaults() {
+            localStorage.setItem('watermarkDefaults', JSON.stringify(DEFAULTS));
+        }
+
+        // Initialize with defaults
+        loadDefaults();
+        // State
+        let photos = [];
+        let processedBlobs = [];
+
+        // Elements
         const uploadZone = document.getElementById('uploadZone');
-        const previewContainer = document.getElementById('previewContainer');
-        const previewCanvas = document.getElementById('previewCanvas');
-        const downloadAllBtn = document.getElementById('downloadAllBtn');
-        const downloadIndividualBtn = document.getElementById('downloadIndividualBtn');
-        const progressContainer = document.getElementById('progressContainer');
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
+        const fileInput = document.getElementById('fileInput');
+        const previewGrid = document.getElementById('previewGrid');
+        const photoCount = document.getElementById('photoCount');
         const settingsToggle = document.getElementById('settingsToggle');
         const settingsContent = document.getElementById('settingsContent');
         const toggleIcon = document.getElementById('toggleIcon');
+        const previewCanvas = document.getElementById('previewCanvas');
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        const downloadZipBtn = document.getElementById('downloadZipBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const statusMessage = document.getElementById('statusMessage');
 
-        // Watermark settings
-        const barOpacity = document.getElementById('barOpacity');
-        const barHeight = document.getElementById('barHeight');
-        const barHeightNumber = document.getElementById('barHeightNumber');
-        const text1Input = document.getElementById('text1');
-        const text2Input = document.getElementById('text2');
-        const text3Input = document.getElementById('text3');
+        // Settings
+        const opacitySlider = document.getElementById('opacitySlider');
         const opacityValue = document.getElementById('opacityValue');
+        const heightSlider = document.getElementById('heightSlider');
         const heightValue = document.getElementById('heightValue');
+        const positionSlider = document.getElementById('positionSlider');
+        const positionValue = document.getElementById('positionValue');
+        const text1 = document.getElementById('text1');
+        const text2 = document.getElementById('text2');
+        const text3 = document.getElementById('text3');
+        const resetDefaultsBtn = document.getElementById('resetDefaultsBtn');
+
+        // Admin panel elements
+        const adminTrigger = document.getElementById('adminTrigger');
+        const adminSettingsIcon = document.getElementById('adminSettingsIcon');
+        const adminOverlay = document.getElementById('adminOverlay');
+        const adminPanel = document.getElementById('adminPanel');
+        const adminSave = document.getElementById('adminSave');
+        const adminCancel = document.getElementById('adminCancel');
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', init);
+        init();
 
         function init() {
+            applyDefaults();
             setupEventListeners();
         }
 
-        function setupEventListeners() {
-            // File upload
-            uploadZone.addEventListener('click', () => fileInput.click());
-            fileInput.addEventListener('change', handleFileSelect);
+        function applyDefaults() {
+            opacitySlider.value = DEFAULTS.opacity;
+            opacityValue.textContent = DEFAULTS.opacity + '%';
+            heightSlider.value = DEFAULTS.height;
+            heightValue.textContent = DEFAULTS.height + 'px';
+            positionSlider.value = DEFAULTS.position;
+            positionValue.textContent = DEFAULTS.position + '%';
+            text1.value = DEFAULTS.text1;
+            text2.value = DEFAULTS.text2;
+            text3.value = DEFAULTS.text3;
+        }
 
-            // Drag and drop
+        function setupEventListeners() {
+            // Upload
+            uploadZone.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFiles);
+
             uploadZone.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                uploadZone.classList.add('dragover');
+                uploadZone.classList.add('active');
             });
 
             uploadZone.addEventListener('dragleave', () => {
-                uploadZone.classList.remove('dragover');
+                uploadZone.classList.remove('active');
             });
 
             uploadZone.addEventListener('drop', (e) => {
                 e.preventDefault();
-                uploadZone.classList.remove('dragover');
-                handleFileSelect({ target: { files: e.dataTransfer.files } });
+                uploadZone.classList.remove('active');
+                const dt = e.dataTransfer;
+                fileInput.files = dt.files;
+                handleFiles();
             });
 
-            // Download buttons - process then download
-            downloadAllBtn.addEventListener('click', async () => {
-                await processAllPhotos();
-                downloadAllAsZip();
-            });
-
-            downloadIndividualBtn.addEventListener('click', async () => {
-                await processAllPhotos();
-                downloadIndividualImages();
-            });
-
-            // Settings panel toggle
+            // Settings toggle
             settingsToggle.addEventListener('click', () => {
                 settingsContent.classList.toggle('open');
                 toggleIcon.textContent = settingsContent.classList.contains('open') ? '▲' : '▼';
             });
 
-            // Settings controls with live preview
-            barOpacity.addEventListener('input', (e) => {
-                opacityValue.textContent = e.target.value;
+            // Sliders with snap-to-default and click-to-edit
+            opacitySlider.addEventListener('input', (e) => {
+                let value = parseInt(e.target.value);
+                if (Math.abs(value - DEFAULTS.opacity) <= 2) {
+                    value = DEFAULTS.opacity;
+                    e.target.value = DEFAULTS.opacity;
+                }
+                opacityValue.textContent = value + '%';
                 updatePreview();
             });
 
-            barHeight.addEventListener('input', (e) => {
-                heightValue.textContent = e.target.value;
-                barHeightNumber.value = e.target.value;
+            opacityValue.addEventListener('click', () => {
+                makeValueEditable(opacityValue, opacitySlider, 0, 100, '%');
+            });
+
+            heightSlider.addEventListener('input', (e) => {
+                let value = parseInt(e.target.value);
+                if (Math.abs(value - DEFAULTS.height) <= 2) {
+                    value = DEFAULTS.height;
+                    e.target.value = DEFAULTS.height;
+                }
+                heightValue.textContent = value + 'px';
                 updatePreview();
             });
 
-            barHeightNumber.addEventListener('input', (e) => {
-                const value = Math.max(10, Math.min(100, e.target.value));
-                barHeight.value = value;
-                heightValue.textContent = value;
+            heightValue.addEventListener('click', () => {
+                makeValueEditable(heightValue, heightSlider, 10, 100, 'px');
+            });
+
+            positionSlider.addEventListener('input', (e) => {
+                let value = parseInt(e.target.value);
+                if (Math.abs(value - DEFAULTS.position) <= 2) {
+                    value = DEFAULTS.position;
+                    e.target.value = DEFAULTS.position;
+                }
+                positionValue.textContent = value + '%';
                 updatePreview();
             });
 
-            // Live preview for text inputs
-            text1Input.addEventListener('input', updatePreview);
-            text2Input.addEventListener('input', updatePreview);
-            text3Input.addEventListener('input', updatePreview);
-
-            // Live preview for aspect ratio changes
-            document.querySelectorAll('input[name="aspectRatio"]').forEach(radio => {
-                radio.addEventListener('change', updatePreview);
+            positionValue.addEventListener('click', () => {
+                makeValueEditable(positionValue, positionSlider, 0, 100, '%');
             });
-        }
 
-        // ==================== FILE HANDLING ====================
+            // Reset to defaults button
+            resetDefaultsBtn.addEventListener('click', () => {
+                applyDefaults();
+                updatePreview();
+            });
 
-        function handleFileSelect(e) {
-            const files = Array.from(e.target.files);
+            // Admin panel - settings icon click
+            adminSettingsIcon.addEventListener('click', openAdminPanel);
 
-            files.forEach(file => {
-                if (file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            uploadedFiles.push({
-                                file: file,
-                                name: file.name,
-                                url: e.target.result,
-                                img: img
-                            });
-
-                            addPreviewThumbnail(uploadedFiles.length - 1);
-                            updateUIState();
-
-                            // Update preview with first image
-                            if (uploadedFiles.length === 1) {
-                                updatePreview();
-                            }
-                        };
-                        img.src = e.target.result;
-                    };
-                    reader.readAsDataURL(file);
+            // Admin panel - triple click bottom right corner (backup method)
+            let clickCount = 0;
+            let clickTimer;
+            adminTrigger.addEventListener('click', () => {
+                clickCount++;
+                if (clickCount === 1) {
+                    clickTimer = setTimeout(() => {
+                        clickCount = 0;
+                    }, 1000);
+                }
+                if (clickCount === 3) {
+                    clearTimeout(clickTimer);
+                    clickCount = 0;
+                    openAdminPanel();
                 }
             });
-        }
 
-        function addPreviewThumbnail(index) {
-            const fileData = uploadedFiles[index];
-            const previewItem = document.createElement('div');
-            previewItem.className = 'preview-item';
-            previewItem.innerHTML = `
-                <img src="${fileData.url}" alt="${fileData.name}">
-                <div class="filename">${fileData.name}</div>
-                <button class="remove-btn" onclick="removeFile(${index})">×</button>
-            `;
-            previewContainer.appendChild(previewItem);
-        }
+            adminOverlay.addEventListener('click', closeAdminPanel);
+            adminCancel.addEventListener('click', closeAdminPanel);
 
-        function removeFile(index) {
-            uploadedFiles.splice(index, 1);
-            previewContainer.innerHTML = '';
-            uploadedFiles.forEach((_, i) => addPreviewThumbnail(i));
-            updateUIState();
-
-            if (uploadedFiles.length > 0) {
+            adminSave.addEventListener('click', () => {
+                DEFAULTS.opacity = parseInt(document.getElementById('adminOpacity').value);
+                DEFAULTS.height = parseInt(document.getElementById('adminHeight').value);
+                DEFAULTS.position = parseInt(document.getElementById('adminPosition').value);
+                DEFAULTS.text1 = document.getElementById('adminText1').value;
+                DEFAULTS.text2 = document.getElementById('adminText2').value;
+                DEFAULTS.text3 = document.getElementById('adminText3').value;
+                saveDefaults();
+                applyDefaults();
                 updatePreview();
+                closeAdminPanel();
+                alert('✓ Global defaults saved successfully!');
+            });
+
+            // Text inputs
+            [text1, text2, text3].forEach(input => {
+                input.addEventListener('input', updatePreview);
+            });
+
+            // Aspect ratio
+            document.querySelectorAll('input[name="ratio"]').forEach(radio => {
+                radio.addEventListener('change', updatePreview);
+            });
+
+            // Download buttons
+            downloadAllBtn.addEventListener('click', downloadAllImages);
+            downloadZipBtn.addEventListener('click', downloadAsZip);
+        }
+
+        function handleFiles() {
+            const files = Array.from(fileInput.files);
+
+            files.forEach(file => {
+                if (!file.type.startsWith('image/')) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        photos.push({
+                            name: file.name,
+                            img: img,
+                            url: e.target.result
+                        });
+                        renderPreviews();
+                        updateUI();
+                        if (photos.length === 1) updatePreview();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function renderPreviews() {
+            previewGrid.innerHTML = '';
+            photos.forEach((photo, index) => {
+                const item = document.createElement('div');
+                item.className = 'preview-item';
+                item.innerHTML = `
+                    <img src="${photo.url}" alt="${photo.name}">
+                    <button class="remove" data-index="${index}">×</button>
+                `;
+                item.querySelector('.remove').addEventListener('click', () => removePhoto(index));
+                previewGrid.appendChild(item);
+            });
+        }
+
+        function removePhoto(index) {
+            photos.splice(index, 1);
+            processedBlobs = []; // Clear processed blobs
+            renderPreviews();
+            updateUI();
+            if (photos.length > 0) updatePreview();
+            else previewCanvas.getContext('2d').clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        }
+
+        function updateUI() {
+            photoCount.textContent = photos.length;
+            const hasPhotos = photos.length > 0;
+            downloadAllBtn.disabled = !hasPhotos;
+            downloadZipBtn.disabled = !hasPhotos;
+
+            if (!hasPhotos) {
+                processedBlobs = [];
+                hideStatus();
+                progressContainer.classList.remove('show');
             }
         }
 
-        function updateUIState() {
-            downloadAllBtn.disabled = uploadedFiles.length === 0;
-            downloadIndividualBtn.disabled = uploadedFiles.length === 0;
-        }
-
-        // ==================== WATERMARK PROCESSING ====================
-
         function updatePreview() {
-            if (uploadedFiles.length === 0) return;
+            if (photos.length === 0) return;
 
-            const fileData = uploadedFiles[0];
-            const selectedRatio = document.querySelector('input[name="aspectRatio"]:checked').value;
+            processImage(photos[0].img, true).then(canvas => {
+                if (canvas) {
+                    // Show actual output size without stretching
+                    // Scale down only if too large for viewport
+                    const containerWidth = window.innerWidth < 768 ?
+                        Math.min(window.innerWidth - 80, 700) :
+                        window.innerWidth < 1024 ? 800 : 350;
 
-            processImage(fileData.img, fileData.name, selectedRatio, true);
+                    // Only scale down if image is larger than container
+                    if (canvas.width > containerWidth) {
+                        const scale = containerWidth / canvas.width;
+                        previewCanvas.width = canvas.width * scale;
+                        previewCanvas.height = canvas.height * scale;
+                    } else {
+                        // Show at actual size
+                        previewCanvas.width = canvas.width;
+                        previewCanvas.height = canvas.height;
+                    }
+
+                    const ctx = previewCanvas.getContext('2d');
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(canvas, 0, 0, previewCanvas.width, previewCanvas.height);
+                }
+            });
         }
 
-        function processImage(img, filename, aspectRatio, isPreview = false) {
+        async function processImage(img, isPreview = false) {
             return new Promise((resolve) => {
-                // Work at original image resolution or higher - never downscale
-                // Use the actual image dimensions for maximum quality
-                const workingWidth = img.width;
-                const workingHeight = img.height;
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
 
-                // Create canvas at original or higher resolution for watermarking
-                const originalCanvas = document.createElement('canvas');
-                const originalCtx = originalCanvas.getContext('2d', {
-                    alpha: true,
-                    desynchronized: false,
-                    willReadFrequently: false
-                });
+                canvas.width = img.width;
+                canvas.height = img.height;
 
-                originalCanvas.width = workingWidth;
-                originalCanvas.height = workingHeight;
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0);
 
-                // Enable highest quality rendering
-                originalCtx.imageSmoothingEnabled = true;
-                originalCtx.imageSmoothingQuality = 'high';
+                applyWatermark(ctx, canvas.width, canvas.height);
 
-                // Draw original image at full quality - pixel perfect
-                originalCtx.drawImage(img, 0, 0, img.width, img.height, 0, 0, workingWidth, workingHeight);
+                const ratio = document.querySelector('input[name="ratio"]:checked').value;
+                const finalCanvas = ratio === 'original' ? canvas : fitToRatio(canvas, ratio);
 
-                // Apply watermark to original image at native resolution
-                applyWatermark(originalCtx, workingWidth, workingHeight);
-
-                // Handle aspect ratio fitting
-                let finalCanvas;
-                if (aspectRatio === 'original') {
-                    finalCanvas = originalCanvas;
-                } else {
-                    finalCanvas = fitToAspectRatio(originalCanvas, aspectRatio);
-                }
-
-                // Update preview or return result
                 if (isPreview) {
-                    // Scale down for preview display with high quality
-                    const maxPreviewWidth = 800;
-                    const scale = Math.min(1, maxPreviewWidth / finalCanvas.width);
-                    previewCanvas.width = finalCanvas.width * scale;
-                    previewCanvas.height = finalCanvas.height * scale;
-                    const previewCtx = previewCanvas.getContext('2d', { alpha: true });
-
-                    // High-quality preview rendering
-                    previewCtx.imageSmoothingEnabled = true;
-                    previewCtx.imageSmoothingQuality = 'high';
-                    previewCtx.drawImage(finalCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
-                    resolve(null);
+                    resolve(finalCanvas);
                 } else {
-                    // Convert to blob for download at MAXIMUM quality
-                    // PNG with quality 1.0 ensures lossless output
                     finalCanvas.toBlob((blob) => {
-                        resolve({
-                            blob: blob,
-                            filename: filename.replace(/\.[^.]+$/, '_WM.png')
-                        });
+                        resolve(blob);
                     }, 'image/png', 1.0);
                 }
             });
         }
 
         function applyWatermark(ctx, width, height) {
-            // Use 8x supersampling for maximum text sharpness
-            // This renders text at 8x resolution and downsamples for exceptional quality
-            const superSample = 8;
-            const ssWidth = width * superSample;
-            const ssHeight = height * superSample;
+            const scale = 4;
+            const ssWidth = width * scale;
+            const ssHeight = height * scale;
 
-            // Create ultra-high-resolution canvas for watermark
-            const watermarkCanvas = document.createElement('canvas');
-            watermarkCanvas.width = ssWidth;
-            watermarkCanvas.height = ssHeight;
-            const wmCtx = watermarkCanvas.getContext('2d', {
-                alpha: true,
-                desynchronized: false,
-                willReadFrequently: false
-            });
+            const wmCanvas = document.createElement('canvas');
+            wmCanvas.width = ssWidth;
+            wmCanvas.height = ssHeight;
+            const wmCtx = wmCanvas.getContext('2d');
 
-            // Disable smoothing for pixel-perfect text at ultra-high resolution
-            wmCtx.imageSmoothingEnabled = false;
+            const baseBarHeight = parseInt(heightSlider.value);
+            const scaledBarHeight = (baseBarHeight * (width / 1080)) * scale;
 
-            // Calculate bar dimensions (scaled proportionally to image width)
-            const baseWidth = 1080;
-            const baseBarHeight = parseInt(barHeight.value);
-            const scaledBarHeight = (baseBarHeight * (width / baseWidth)) * superSample;
-
-            // Bar position: bottom edge at 2/3 of height (top of bottom third)
-            const barBottomY = (ssHeight / 3) * 2;
+            // Position based on slider (0-100% of image height)
+            const positionPercent = parseInt(positionSlider.value) / 100;
+            const barBottomY = ssHeight * positionPercent;
             const barTopY = barBottomY - scaledBarHeight;
 
-            // Draw bar at ultra-high resolution with anti-aliasing
-            const opacity = parseInt(barOpacity.value) / 100;
+            const opacity = parseInt(opacitySlider.value) / 100;
             wmCtx.fillStyle = `rgba(119, 36, 28, ${opacity})`;
             wmCtx.fillRect(0, barTopY, ssWidth, scaledBarHeight);
 
-            // Text settings - render at 8x resolution for maximum sharpness
             const fontSize = Math.round(scaledBarHeight * 0.4);
-
-            // Enable text rendering optimizations for maximum quality
-            wmCtx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+            wmCtx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
             wmCtx.fillStyle = '#FFFFFF';
             wmCtx.textBaseline = 'middle';
 
-            // Enable subpixel text rendering for ultra-sharp edges
-            if (wmCtx.textRendering) {
-                wmCtx.textRendering = 'geometricPrecision';
-            }
-
-            // Get text values
-            const texts = [
-                text1Input.value,
-                text2Input.value,
-                text3Input.value
-            ];
-
-            // Calculate text positions (evenly distributed)
             const barCenterY = barTopY + (scaledBarHeight / 2);
-            const margin = ssWidth * 0.05; // 5% margin on each side
+            const margin = ssWidth * 0.05;
 
-            // Draw texts at 8x resolution with sub-pixel precision
-            // Left text
             wmCtx.textAlign = 'left';
-            wmCtx.fillText(texts[0], Math.round(margin), Math.round(barCenterY));
+            wmCtx.fillText(text1.value, margin, barCenterY);
 
-            // Center text
             wmCtx.textAlign = 'center';
-            wmCtx.fillText(texts[1], Math.round(ssWidth / 2), Math.round(barCenterY));
+            wmCtx.fillText(text2.value, ssWidth / 2, barCenterY);
 
-            // Right text
             wmCtx.textAlign = 'right';
-            wmCtx.fillText(texts[2], Math.round(ssWidth - margin), Math.round(barCenterY));
+            wmCtx.fillText(text3.value, ssWidth - margin, barCenterY);
 
-            // Multi-pass downsampling for highest quality
-            // First downsample to 4x, then to 2x, then to 1x for smoother results
-            let currentCanvas = watermarkCanvas;
-            const passes = [4, 2, 1];
+            // Downsample for quality
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.imageSmoothingEnabled = true;
+            tempCtx.imageSmoothingQuality = 'high';
+            tempCtx.drawImage(wmCanvas, 0, 0, width, height);
 
-            for (let pass of passes) {
-                const targetScale = pass === 1 ? 1 : pass;
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = width * targetScale;
-                tempCanvas.height = height * targetScale;
-                const tempCtx = tempCanvas.getContext('2d', {
-                    alpha: true,
-                    desynchronized: false,
-                    willReadFrequently: false
-                });
-
-                tempCtx.imageSmoothingEnabled = true;
-                tempCtx.imageSmoothingQuality = 'high';
-                tempCtx.drawImage(currentCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
-                currentCanvas = tempCanvas;
-            }
-
-            // Final composite onto main canvas
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(currentCanvas, 0, 0, width, height);
+            ctx.drawImage(tempCanvas, 0, 0);
         }
 
-        function fitToAspectRatio(sourceCanvas, aspectRatio) {
-            // Parse aspect ratio
-            const [ratioW, ratioH] = aspectRatio.split(':').map(Number);
-
-            // Determine target dimensions - use source image size if larger than standard
-            // This prevents unnecessary downscaling and preserves maximum quality
-            let targetWidth, targetHeight;
-
-            // Standard resolutions
-            const standardResolutions = {
-                '9:16': { w: 1080, h: 1920 },
-                '4:5': { w: 1080, h: 1350 },
-                '1:1': { w: 1080, h: 1080 },
-                '16:9': { w: 1920, h: 1080 }
+        function fitToRatio(sourceCanvas, ratio) {
+            const ratios = {
+                '9:16': [1080, 1920],
+                '4:5': [1080, 1350],
+                '1:1': [1080, 1080],
+                '16:9': [1920, 1080]
             };
 
-            // Calculate dimensions - use larger of standard or source-based dimensions
-            if (standardResolutions[aspectRatio]) {
-                const stdRes = standardResolutions[aspectRatio];
+            const [w, h] = ratios[ratio];
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
 
-                // If source is larger than standard resolution, scale up the target to match
-                const sourceMax = Math.max(sourceCanvas.width, sourceCanvas.height);
-                const targetMax = Math.max(stdRes.w, stdRes.h);
+            ctx.fillStyle = '#77241C';
+            ctx.fillRect(0, 0, w, h);
 
-                if (sourceMax > targetMax) {
-                    // Scale up the target resolution proportionally
-                    const scale = sourceMax / targetMax;
-                    targetWidth = Math.round(stdRes.w * scale);
-                    targetHeight = Math.round(stdRes.h * scale);
-                } else {
-                    targetWidth = stdRes.w;
-                    targetHeight = stdRes.h;
-                }
+            const srcAspect = sourceCanvas.width / sourceCanvas.height;
+            const tgtAspect = w / h;
+
+            let dw, dh, dx, dy;
+
+            if (srcAspect > tgtAspect) {
+                dw = w;
+                dh = w / srcAspect;
+                dx = 0;
+                dy = (h - dh) / 2;
             } else {
-                // Fallback calculation
-                targetWidth = Math.max(1080, sourceCanvas.width);
-                targetHeight = Math.round(targetWidth * (ratioH / ratioW));
+                dh = h;
+                dw = h * srcAspect;
+                dx = (w - dw) / 2;
+                dy = 0;
             }
 
-            // Create target canvas with padding color
-            const targetCanvas = document.createElement('canvas');
-            targetCanvas.width = targetWidth;
-            targetCanvas.height = targetHeight;
-            const targetCtx = targetCanvas.getContext('2d', {
-                alpha: true,
-                desynchronized: false,
-                willReadFrequently: false
-            });
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(sourceCanvas, dx, dy, dw, dh);
 
-            // Enable ultra-high-quality image smoothing
-            targetCtx.imageSmoothingEnabled = true;
-            targetCtx.imageSmoothingQuality = 'high';
-
-            // Fill background with brand color (solid, no opacity)
-            targetCtx.fillStyle = '#77241C';
-            targetCtx.fillRect(0, 0, targetWidth, targetHeight);
-
-            // Calculate scaling to fit source image within target canvas
-            const sourceAspect = sourceCanvas.width / sourceCanvas.height;
-            const targetAspect = targetWidth / targetHeight;
-
-            let drawWidth, drawHeight, drawX, drawY;
-
-            if (sourceAspect > targetAspect) {
-                // Source is wider - fit to width
-                drawWidth = targetWidth;
-                drawHeight = targetWidth / sourceAspect;
-                drawX = 0;
-                drawY = (targetHeight - drawHeight) / 2;
-            } else {
-                // Source is taller - fit to height
-                drawHeight = targetHeight;
-                drawWidth = targetHeight * sourceAspect;
-                drawX = (targetWidth - drawWidth) / 2;
-                drawY = 0;
-            }
-
-            // Round positions to avoid sub-pixel rendering blur
-            drawX = Math.round(drawX);
-            drawY = Math.round(drawY);
-            drawWidth = Math.round(drawWidth);
-            drawHeight = Math.round(drawHeight);
-
-            // Draw scaled image centered with maximum quality interpolation
-            // Use full source dimensions for best quality when scaling
-            targetCtx.drawImage(
-                sourceCanvas,
-                0, 0, sourceCanvas.width, sourceCanvas.height,  // Source rectangle (full source)
-                drawX, drawY, drawWidth, drawHeight              // Destination rectangle
-            );
-
-            return targetCanvas;
+            return canvas;
         }
-
-        // ==================== BATCH PROCESSING ====================
 
         async function processAllPhotos() {
-            // If already processed, skip reprocessing
-            if (processedResults.length === uploadedFiles.length) {
-                return;
-            }
+            if (processedBlobs.length === photos.length) return;
 
-            processedResults = [];
-            progressContainer.style.display = 'block';
+            processedBlobs = [];
+            progressContainer.classList.add('show');
+            hideStatus();
             downloadAllBtn.disabled = true;
-            downloadIndividualBtn.disabled = true;
+            downloadZipBtn.disabled = true;
 
-            const selectedRatio = document.querySelector('input[name="aspectRatio"]:checked').value;
-            const total = uploadedFiles.length;
+            for (let i = 0; i < photos.length; i++) {
+                const blob = await processImage(photos[i].img, false);
+                processedBlobs.push({
+                    blob: blob,
+                    name: photos[i].name.replace(/\.[^.]+$/, '_WM.png')
+                });
 
-            for (let i = 0; i < total; i++) {
-                const fileData = uploadedFiles[i];
-                const result = await processImage(fileData.img, fileData.name, selectedRatio, false);
-                processedResults.push(result);
-
-                const progress = Math.round(((i + 1) / total) * 100);
-                progressFill.style.width = progress + '%';
-                progressFill.textContent = progress + '%';
-                progressText.textContent = `Processing ${i + 1} of ${total}...`;
+                const percent = Math.round(((i + 1) / photos.length) * 100);
+                progressBar.style.width = percent + '%';
+                progressBar.textContent = percent + '%';
             }
 
-            progressText.innerHTML = '<strong style="color: #2e7d32;">✓ Processing complete!</strong>';
             downloadAllBtn.disabled = false;
-            downloadIndividualBtn.disabled = false;
+            downloadZipBtn.disabled = false;
         }
 
-        // ==================== DOWNLOAD ====================
+        async function downloadAllImages() {
+            if (processedBlobs.length === 0) {
+                await processAllPhotos();
+            }
 
-        async function downloadAllAsZip() {
-            if (processedResults.length === 0) return;
+            showStatus('info', '⬇️ Saving ' + processedBlobs.length + ' image(s) to your device...');
 
-            const zip = new JSZip();
+            // Try Web Share API first (mobile devices)
+            if (navigator.share && navigator.canShare) {
+                try {
+                    const files = processedBlobs.map(item =>
+                        new File([item.blob], item.name, { type: 'image/png' })
+                    );
 
-            processedResults.forEach(result => {
-                zip.file(result.filename, result.blob);
-            });
+                    if (navigator.canShare({ files })) {
+                        await navigator.share({
+                            files: files,
+                            title: 'KUSOM Watermarked Photos',
+                            text: 'Watermarked photos from KUSOM'
+                        });
+                        showStatus('success', '✓ Images saved successfully!');
+                        return;
+                    }
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        console.log('Share failed, using download fallback:', err);
+                    } else {
+                        hideStatus();
+                        return;
+                    }
+                }
+            }
 
-            const content = await zip.generateAsync({ type: 'blob' });
-            const url = URL.createObjectURL(content);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `KUSOM_Watermarked_Photos_${Date.now()}.zip`;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        function downloadIndividualImages() {
-            if (processedResults.length === 0) return;
-
-            // Show feedback to user immediately
-            progressText.innerHTML = '<strong style="color: #1565c0;">⬇️ Downloading ' + processedResults.length + ' images to your device...</strong>';
-
-            // Download each image with a small delay to prevent browser blocking
-            processedResults.forEach((result, index) => {
+            // Fallback: Download each image
+            processedBlobs.forEach((item, index) => {
                 setTimeout(() => {
-                    const url = URL.createObjectURL(result.blob);
+                    const url = URL.createObjectURL(item.blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = result.filename;
+                    a.download = item.name;
+                    document.body.appendChild(a);
                     a.click();
-
-                    // Clean up the URL after a short delay
+                    document.body.removeChild(a);
                     setTimeout(() => URL.revokeObjectURL(url), 100);
 
-                    // Update progress message
-                    if (index === processedResults.length - 1) {
+                    if (index === processedBlobs.length - 1) {
                         setTimeout(() => {
-                            progressText.innerHTML = '<strong style="color: #2e7d32;">✓ All ' + processedResults.length + ' images downloaded successfully!</strong>';
+                            showStatus('success', '✓ All ' + processedBlobs.length + ' image(s) downloaded! Check your Downloads folder or Photos/Gallery.');
                         }, 300);
                     }
-                }, index * 200); // 200ms delay between each download
+                }, index * 300);
             });
         }
+
+        async function downloadAsZip() {
+            if (processedBlobs.length === 0) {
+                await processAllPhotos();
+            }
+
+            showStatus('info', '📦 Creating ZIP file...');
+
+            const zip = new JSZip();
+            processedBlobs.forEach(item => {
+                zip.file(item.name, item.blob);
+            });
+
+            const content = await zip.generateAsync({
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 6 }
+            });
+
+            saveAs(content, `KUSOM_Watermarked_${new Date().toISOString().split('T')[0]}.zip`);
+            showStatus('success', '✓ ZIP file downloaded successfully!');
+        }
+
+        function showStatus(type, message) {
+            statusMessage.className = 'status-message show ' + type;
+            statusMessage.textContent = message;
+        }
+
+        function hideStatus() {
+            statusMessage.classList.remove('show');
+        }
+
+        function makeValueEditable(element, slider, min, max, suffix) {
+            const currentValue = parseInt(element.textContent);
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.className = 'slider-value-input';
+            input.min = min;
+            input.max = max;
+            input.value = currentValue;
+            input.style.width = element.offsetWidth + 'px';
+
+            element.replaceWith(input);
+            input.focus();
+            input.select();
+
+            function restore(newValue) {
+                const span = document.createElement('span');
+                span.className = 'slider-value';
+                span.id = element.id;
+                span.textContent = newValue + suffix;
+                input.replaceWith(span);
+
+                // Re-attach click listener
+                span.addEventListener('click', () => {
+                    makeValueEditable(span, slider, min, max, suffix);
+                });
+
+                // Update slider and preview
+                slider.value = newValue;
+                updatePreview();
+            }
+
+            input.addEventListener('blur', () => {
+                let value = parseInt(input.value) || currentValue;
+                value = Math.max(min, Math.min(max, value));
+                restore(value);
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                } else if (e.key === 'Escape') {
+                    restore(currentValue);
+                }
+            });
+        }
+
+        function openAdminPanel() {
+            // Load current defaults into admin form
+            document.getElementById('adminOpacity').value = DEFAULTS.opacity;
+            document.getElementById('adminHeight').value = DEFAULTS.height;
+            document.getElementById('adminPosition').value = DEFAULTS.position;
+            document.getElementById('adminText1').value = DEFAULTS.text1;
+            document.getElementById('adminText2').value = DEFAULTS.text2;
+            document.getElementById('adminText3').value = DEFAULTS.text3;
+
+            adminPanel.classList.add('show');
+            adminOverlay.classList.add('show');
+        }
+
+        function closeAdminPanel() {
+            adminPanel.classList.remove('show');
+            adminOverlay.classList.remove('show');
+        }
+
+        // Responsive preview update
+        window.addEventListener('resize', () => {
+            if (photos.length > 0) updatePreview();
+        });
     </script>
 </body>
 </html>
