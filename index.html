@@ -1313,9 +1313,45 @@
         }
 
         function applyWatermark(ctx, width, height) {
-            const scale = 4;
+            // Use 2x scale for mobile devices to avoid canvas size limits
+            // Mobile browsers often have a max canvas size around 16 million pixels
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const scale = isMobile ? 2 : 4;
             const ssWidth = width * scale;
             const ssHeight = height * scale;
+
+            // Check if canvas size is too large (mobile limit ~16MP)
+            const maxCanvasSize = 16777216; // 16 million pixels
+            if (ssWidth * ssHeight > maxCanvasSize) {
+                // If too large, render directly without supersampling
+                const baseBarHeight = parseInt(heightSlider.value);
+                const scaledBarHeight = baseBarHeight * (width / 1080);
+                const positionPercent = parseInt(positionSlider.value) / 100;
+                const barBottomY = height * positionPercent;
+                const barTopY = barBottomY - scaledBarHeight;
+
+                const opacity = parseInt(opacitySlider.value) / 100;
+                ctx.fillStyle = `rgba(119, 36, 28, ${opacity})`;
+                ctx.fillRect(0, barTopY, width, scaledBarHeight);
+
+                const fontSize = Math.round(scaledBarHeight * 0.4);
+                ctx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+                ctx.fillStyle = '#FFFFFF';
+                ctx.textBaseline = 'middle';
+
+                const barCenterY = barTopY + (scaledBarHeight / 2);
+                const margin = width * 0.05;
+
+                ctx.textAlign = 'left';
+                ctx.fillText(text1.value, margin, barCenterY);
+
+                ctx.textAlign = 'center';
+                ctx.fillText(text2.value, width / 2, barCenterY);
+
+                ctx.textAlign = 'right';
+                ctx.fillText(text3.value, width - margin, barCenterY);
+                return;
+            }
 
             const wmCanvas = document.createElement('canvas');
             wmCanvas.width = ssWidth;
