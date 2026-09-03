@@ -897,14 +897,19 @@
                 <div class="card">
                     <div class="card-title">💾 Download</div>
 
-                    <button class="btn" id="downloadAllBtn" disabled>
-                        <span class="btn-icon">📥</span>
-                        <span>Save All to Gallery</span>
+                    <button class="btn" id="downloadAppleBtn" disabled>
+                        <span class="btn-icon">🍎</span>
+                        <span>Save to Photos (iPhone/iPad)</span>
+                    </button>
+
+                    <button class="btn" id="downloadAndroidBtn" disabled>
+                        <span class="btn-icon">🤖</span>
+                        <span>Save to Gallery (Android/PC)</span>
                     </button>
 
                     <button class="btn btn-secondary" id="downloadZipBtn" disabled>
                         <span class="btn-icon">📦</span>
-                        <span>Download as ZIP</span>
+                        <span>Download as ZIP (All Devices)</span>
                     </button>
 
                     <div class="progress-container" id="progressContainer">
@@ -996,7 +1001,8 @@
         const settingsContent = document.getElementById('settingsContent');
         const toggleIcon = document.getElementById('toggleIcon');
         const previewCanvas = document.getElementById('previewCanvas');
-        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        const downloadAppleBtn = document.getElementById('downloadAppleBtn');
+        const downloadAndroidBtn = document.getElementById('downloadAndroidBtn');
         const downloadZipBtn = document.getElementById('downloadZipBtn');
         const progressContainer = document.getElementById('progressContainer');
         const progressBar = document.getElementById('progressBar');
@@ -1167,7 +1173,8 @@
             });
 
             // Download buttons
-            downloadAllBtn.addEventListener('click', downloadAllImages);
+            downloadAppleBtn.addEventListener('click', downloadForApple);
+            downloadAndroidBtn.addEventListener('click', downloadForAndroid);
             downloadZipBtn.addEventListener('click', downloadAsZip);
         }
 
@@ -1222,7 +1229,8 @@
         function updateUI() {
             photoCount.textContent = photos.length;
             const hasPhotos = photos.length > 0;
-            downloadAllBtn.disabled = !hasPhotos;
+            downloadAppleBtn.disabled = !hasPhotos;
+            downloadAndroidBtn.disabled = !hasPhotos;
             downloadZipBtn.disabled = !hasPhotos;
 
             if (!hasPhotos) {
@@ -1402,18 +1410,19 @@
                 progressBar.textContent = percent + '%';
             }
 
-            downloadAllBtn.disabled = false;
+            downloadAppleBtn.disabled = false;
+            downloadAndroidBtn.disabled = false;
             downloadZipBtn.disabled = false;
         }
 
-        async function downloadAllImages() {
+        async function downloadForApple() {
             if (processedBlobs.length === 0) {
                 await processAllPhotos();
             }
 
-            showStatus('info', '⬇️ Saving ' + processedBlobs.length + ' image(s) to your device...');
+            showStatus('info', '🍎 Saving ' + processedBlobs.length + ' image(s) to Photos...');
 
-            // Try Web Share API first (mobile devices)
+            // Use Web Share API for iOS/iPadOS
             if (navigator.share && navigator.canShare) {
                 try {
                     const files = processedBlobs.map(item =>
@@ -1423,37 +1432,53 @@
                     if (navigator.canShare({ files })) {
                         await navigator.share({
                             files: files,
-                            title: 'KUSOM Watermarked Photos',
-                            text: 'Watermarked photos from KUSOM'
+                            title: 'KUSOM Watermarked Photos'
                         });
-                        showStatus('success', '✓ Images saved successfully!');
+                        showStatus('success', '✓ Images saved to Photos!');
                         return;
                     }
                 } catch (err) {
-                    if (err.name !== 'AbortError') {
-                        console.log('Share failed, using download fallback:', err);
-                    } else {
+                    if (err.name === 'AbortError') {
                         hideStatus();
                         return;
                     }
                 }
             }
 
-            // Fallback: Download each image
+            // Fallback for non-iOS devices
+            showStatus('info', '⬇️ Downloading images...');
+            downloadImagesSequentially();
+        }
+
+        async function downloadForAndroid() {
+            if (processedBlobs.length === 0) {
+                await processAllPhotos();
+            }
+
+            showStatus('info', '🤖 Downloading ' + processedBlobs.length + ' image(s)...');
+
+            // Direct download for Android/PC
+            downloadImagesSequentially();
+        }
+
+        function downloadImagesSequentially() {
             processedBlobs.forEach((item, index) => {
                 setTimeout(() => {
                     const url = URL.createObjectURL(item.blob);
                     const a = document.createElement('a');
                     a.href = url;
                     a.download = item.name;
+
+                    // Trigger download
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
+
                     setTimeout(() => URL.revokeObjectURL(url), 100);
 
                     if (index === processedBlobs.length - 1) {
                         setTimeout(() => {
-                            showStatus('success', '✓ All ' + processedBlobs.length + ' image(s) downloaded! Check your Downloads folder or Photos/Gallery.');
+                            showStatus('success', '✓ All ' + processedBlobs.length + ' image(s) downloaded! Check your Downloads folder or Gallery.');
                         }, 300);
                     }
                 }, index * 300);
